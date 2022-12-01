@@ -90,13 +90,13 @@ parser.add_argument("--texture_model", type=str,
                     help="The model to compute style loss. vgg", default="vgg",
                     dest='texture_model')
 # Motion-Texture (Temporal Texture)
-parser.add_argument("--motion_texture_loss_weight", type=float,
+parser.add_argument("--video_motion_loss_weight", type=float,
                     help="Coefficient of Motion Texture Loss for temporal texture synthesis", default=3.0,
-                    dest='motion_texture_loss_weight')
-parser.add_argument("--motion_texture_loss_type", type=str,
+                    dest='video_motion_loss_weight')
+parser.add_argument("--video_motion_loss_type", type=str,
                     help="The method to compute style loss on motion features. Sliced W-distance Loss, OT (Optimal transport), Gram",
                     default='MotionOT',
-                    dest='motion_texture_loss_type')
+                    dest='video_motion_loss_type')
 parser.add_argument("--motion_model_name", type=str, default='two_stream_dynamic',
                     help="Optic Flow computing model. Default is two_stream_dynamic. ",
                     dest='motion_model_name')
@@ -142,7 +142,7 @@ train_image_seq = train_image_seq.permute(1, 0, 2, 3).to(DEVICE)  # T, C, H, W
 (train_image_seq_texture, train_image_texture,
  train_image_texture_save, frame_idx_texture) = get_train_image_seq(
     args,
-    flow_func=DynamicTextureLoss.loss_mapper["motion_texture"].get_motion_feature_two_frames
+    flow_func=DynamicTextureLoss.loss_mapper["video_motion"].get_motion_feature_two_frames
 )
 print(f"Select {frame_idx_texture} frame")
 
@@ -209,7 +209,7 @@ input_dict = {}  # input dictionary for loss computing
 loss_log_dict = defaultdict(list)
 
 init_loss_weight = 5.0
-DynamicTextureLoss.set_loss_weight([args.motion_texture_loss_weight], loss_name='motion_texture',
+DynamicTextureLoss.set_loss_weight([args.video_motion_loss_weight], loss_name='video_motion',
                                    loss_num=init_loss_weight)
 
 for i in pbar:
@@ -260,7 +260,7 @@ for i in pbar:
         generated_image_vis = (generated_image_vis + 1.0) / 2.0
 
     '''Construct input dictionary for loss computation'''
-    if (args.motion_texture_loss_weight > 0):
+    if (args.video_motion_loss_weight > 0):
         target_motion_image_list = []
         if (idx_vid > video_length):
             idx_vid = 0
@@ -275,12 +275,12 @@ for i in pbar:
         if (seed_injection == False):
             loss_log_dict[loss_name].append(min(batch_loss_log_dict[loss_name], 15.0))
 
-    if (i == args.nca_warmup_iter and args.motion_texture_loss_weight > 0.0):  #
+    if (i == args.nca_warmup_iter and args.video_motion_loss_weight > 0.0):  #
         print("Warm Up Ends. Re-Initialize NCA")
 
-        DynamicTextureLoss.set_loss_weight(loss_name='motion_texture', loss_num=args.motion_texture_loss_weight,
+        DynamicTextureLoss.set_loss_weight(loss_name='video_motion', loss_num=args.video_motion_loss_weight,
                                            medium_mt=np.median(loss_log_dict[
-                                                                   'motion_texture']))  # np.median(loss_log_dict['motion_texture'])
+                                                                   'video_motion']))  # np.median(loss_log_dict['video_motion'])
         with torch.no_grad():
             batch_loss.backward()
             optimizer.step()
@@ -336,12 +336,12 @@ for i in pbar:
             plot_log_dict['Texture Loss'] = (loss_log_dict['texture'], False, True)
             plot_train_log(plot_log_dict, num_plots, save_path=f"{output_dir}/losses.jpg")
 
-            if "motion_texture" in loss_log_dict:
+            if "video_motion" in loss_log_dict:
                 save_summary(summary, save_train_image, output_dir, i=i)
 
                 plot_log_dict = {}
-                plot_log_dict['Motion Texture Loss'] = (loss_log_dict['motion_texture'], False, False)
-                plot_train_log(plot_log_dict, 4, save_path=f"{output_dir}/losses_motion_texture.jpg")
+                plot_log_dict['Motion Texture Loss'] = (loss_log_dict['video_motion'], False, False)
+                plot_train_log(plot_log_dict, 4, save_path=f"{output_dir}/losses_video_motion.jpg")
 
         if (i % 5 == 0):
             display_dict = copy.deepcopy(batch_loss_log_dict)
@@ -362,7 +362,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
         if (record_loss):
             assert loss_class is not None
             prev_z = None
-            total_motion_texture_loss_avg = 0.0
+            total_video_motion_loss_avg = 0.0
             total_texture_loss_avg = 0.0
         for k in tqdm(range(int(video_length)), desc="Making the video..."):
             step_n = nca_step
@@ -372,7 +372,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
 
             if (record_loss):
                 input_dict = {}
-                cur_motion_texture_loss_avg = 0.0
+                cur_video_motion_loss_avg = 0.0
                 cur_texture_loss_avg = 0.0
 
                 if (prev_z is None):
@@ -395,13 +395,13 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
                         target_motion_image_list.append(train_image_seq[j:j + 1])
                         target_motion_image_list.append(train_image_seq[j + 1:j + 2])
                         input_dict['target_motion_image_list'] = target_motion_image_list
-                        motion_texture_loss, _, _ = loss_class.loss_mapper['motion_texture'](input_dict,
+                        video_motion_loss, _, _ = loss_class.loss_mapper['video_motion'](input_dict,
                                                                                              return_summary=False)
-                        cur_motion_texture_loss_avg += motion_texture_loss.item()
-                    cur_motion_texture_loss_avg /= (motion_video_length - 1)
+                        cur_video_motion_loss_avg += video_motion_loss.item()
+                    cur_video_motion_loss_avg /= (motion_video_length - 1)
 
                     total_texture_loss_avg += cur_texture_loss_avg
-                    total_motion_texture_loss_avg += cur_motion_texture_loss_avg
+                    total_video_motion_loss_avg += cur_video_motion_loss_avg
 
                     prev_z = z
 
@@ -415,9 +415,9 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
             vid.add(img)
         if (record_loss):
             total_texture_loss_avg /= float(args.video_length * 40)
-            total_motion_texture_loss_avg /= float(args.video_length * 40)
+            total_video_motion_loss_avg /= float(args.video_length * 40)
             with open(f'{output_dir}/final_loss_test.txt', 'w') as f:
-                f.write(f'{total_texture_loss_avg, total_motion_texture_loss_avg}')
+                f.write(f'{total_texture_loss_avg, total_video_motion_loss_avg}')
 
 
 nca_model.eval()

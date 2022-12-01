@@ -2,23 +2,19 @@ import torch
 import numpy as np
 from utils.loss.motion_loss import MotionLoss
 from utils.loss.texture_loss import TextureLoss
-from utils.loss.motion_texture_loss import MotionTextureLoss
+from utils.loss.video_motion_loss import VideoMotionLoss
 
 class Loss(torch.nn.Module):
     def __init__(self, args):
         super(Loss, self).__init__()
         self.args = args
 
-        self.clip_loss_weight = getattr(args, "clip_loss_weight", 0.0)
         self.motion_loss_weight = getattr(args, "motion_loss_weight", 0.0)
         self.texture_loss_weight = getattr(args, "texture_loss_weight", 0.0)
 
-        self.motion_texture_loss_weight = getattr(args, "motion_texture_loss_weight", 0.0)
-        self.two_stream_loss_weight = getattr(args, "two_stream_loss_weight", 0.0)
+        self.video_motion_loss_weight = getattr(args, "video_motion_loss_weight", 0.0)
 
-        self.regularization_loss_weight = getattr(args, "regularization_loss_weight", 0.0)
         self.overflow_loss_weight = getattr(args, "overflow_loss_weight", 0.0)
-        self.motion_texture_loss_weight_change = getattr(args, "motion_texture_loss_weight_change", 0.0)
 
         self._create_losses()
         
@@ -28,12 +24,6 @@ class Loss(torch.nn.Module):
 
         self.weight_dict = self.get_manual_weight()
 
-    @staticmethod
-    def get_regularization_loss(input_dict, return_summary = True):
-        nca_feature_list = input_dict['nca_feature_list']
-        z = nca_feature_list[-1]
-        return (z ** 2).mean(), None, None
-
     def get_overflow_loss(self, input_dict, return_summary = True):
         nca_state = input_dict['nca_state']
         overflow_loss = (nca_state - nca_state.clamp(-1.0, 1.0)).abs().mean()
@@ -42,10 +32,6 @@ class Loss(torch.nn.Module):
     def _create_losses(self):
         self.loss_mapper = {}
         self.loss_weights = {}
-
-        if self.regularization_loss_weight != 0:
-            self.loss_mapper["regularization"] = self.get_regularization_loss
-            self.loss_weights["regularization"] = self.regularization_loss_weight
 
         if self.overflow_loss_weight != 0:
             self.loss_mapper["overflow"] = self.get_overflow_loss
@@ -59,12 +45,12 @@ class Loss(torch.nn.Module):
             self.loss_mapper["texture"] = TextureLoss(self.args)
             self.loss_weights["texture"] = self.texture_loss_weight
         
-        if self.motion_texture_loss_weight != 0:
-            self.loss_mapper["motion_texture"] = MotionTextureLoss(self.args)
-            self.loss_weights["motion_texture"] = self.motion_texture_loss_weight
+        if self.video_motion_loss_weight != 0:
+            self.loss_mapper["video_motion"] = VideoMotionLoss(self.args)
+            self.loss_weights["video_motion"] = self.video_motion_loss_weight
 
-    def set_loss_weight(self, loss_log_before_motion=None, loss_name = 'motion_texture', loss_num = 10.0, medium_mt = None):
-        if(loss_name == 'motion_texture'):
+    def set_loss_weight(self, loss_log_before_motion=None, loss_name = 'video_motion', loss_num = 10.0, medium_mt = None):
+        if(loss_name == 'video_motion'):
             motion_loss_weight_reset = loss_num
             if(medium_mt is not None):
                 if(self.img_size == 256):
@@ -74,8 +60,8 @@ class Loss(torch.nn.Module):
                 if(self.img_name in self.weight_dict[self.nca_config]):
                         motion_loss_weight_reset = self.weight_dict[self.nca_config][self.img_name]
 
-            print(f'Set motion texture loss weight to {motion_loss_weight_reset}')
-            self.loss_weights["motion_texture"] = motion_loss_weight_reset
+            print(f'Set video motion loss weight to {motion_loss_weight_reset}')
+            self.loss_weights["video_motion"] = motion_loss_weight_reset
 
     def forward(self, input_dict, return_log=True, return_summary=True):
         loss = 0

@@ -46,7 +46,7 @@ def choose_and_visualize():
             st.image(loss_img, caption=caption)
     display_img('select_frame.png', 'Frame For Texture Fitting')
     display_img('losses.jpg', 'Loss values during optimization')
-    display_img('losses_motion_texture.jpg', 'Motion Loss')
+    display_img('losses_video_motion.jpg', 'Motion Loss')
 
     max_step = max([int(s[4:-4]) for s in os.listdir(last_path) if "step" in s and "adv" not in s])
     display_img(f'step{max_step}.jpg', 'Generated Images in the last optimization step')

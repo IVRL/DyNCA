@@ -9,29 +9,27 @@ import copy
 import models
 from utils.misc.flow_viz import flow_to_image, plot_vec_field
 
-# raft = models.get_raft_model('raft-things') # test whether could get raft model in this file
-
-class MotionTextureLoss(torch.nn.Module):
+class VideoMotionLoss(torch.nn.Module):
     def __init__(self, args):
-        super(MotionTextureLoss, self).__init__()
+        super(VideoMotionLoss, self).__init__()
         self.args = args
 
-        args.motion_texture_slw_weight = 0.0
-        args.motion_texture_ot_weight = 0.0
-        args.motion_texture_gram_weight = 0.0
-        if(args.motion_texture_loss_type == 'MotionOT'):
-            args.motion_texture_ot_weight = 1.0
-        elif(args.motion_texture_loss_type == 'MotionSlW'):
-            args.motion_texture_slw_weight = 1.0
-        elif(args.motion_texture_loss_type == 'MotionGram'):
-            args.motion_texture_gram_weight = 1.0
+        args.video_motion_slw_weight = 0.0
+        args.video_motion_ot_weight = 0.0
+        args.video_motion_gram_weight = 0.0
+        if(args.video_motion_loss_type == 'MotionOT'):
+            args.video_motion_ot_weight = 1.0
+        elif(args.video_motion_loss_type == 'MotionSlW'):
+            args.video_motion_slw_weight = 1.0
+        elif(args.video_motion_loss_type == 'MotionGram'):
+            args.video_motion_gram_weight = 1.0
 
-        self.slw_weight = args.motion_texture_slw_weight
-        self.ot_weight = args.motion_texture_ot_weight
-        self.gram_weight = args.motion_texture_gram_weight
+        self.slw_weight = args.video_motion_slw_weight
+        self.ot_weight = args.video_motion_ot_weight
+        self.gram_weight = args.video_motion_gram_weight
         
         self.img_size_for_loss = args.motion_img_size
-        print('Image Size For MotionTextureLoss: ', self.img_size_for_loss)
+        print('Image Size For VideoMotionLoss: ', self.img_size_for_loss)
 
         self.motion_model_name = args.motion_model_name
         self.motion_model = models.get_model(self.motion_model_name, models_path="pretrained_models/").to(
