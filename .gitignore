@@ -1,3 +1,18 @@
+.DS_Store
+
+
+*.pth
+*.pt
+*.mp4
+*.avi
+*.txt
+*.jpg
+*.zip
+*.png
+
+pretrained_models/
+out/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
