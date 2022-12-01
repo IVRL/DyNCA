@@ -1,30 +1,28 @@
 import torch
 import numpy as np
-from utils.loss.motion_loss import MotionLoss
+
+from utils.loss.vector_field_motion import VectorFieldMotionLoss
 from utils.loss.texture_loss import TextureLoss
 from utils.loss.video_motion_loss import VideoMotionLoss
+
 
 class Loss(torch.nn.Module):
     def __init__(self, args):
         super(Loss, self).__init__()
         self.args = args
 
-        self.motion_loss_weight = getattr(args, "motion_loss_weight", 0.0)
         self.texture_loss_weight = getattr(args, "texture_loss_weight", 0.0)
 
+        self.vector_field_motion_loss_weight = getattr(args, "vector_field_motion_loss_weight", 0.0)
         self.video_motion_loss_weight = getattr(args, "video_motion_loss_weight", 0.0)
 
         self.overflow_loss_weight = getattr(args, "overflow_loss_weight", 0.0)
 
         self._create_losses()
-        
-        self.img_size = args.img_size[0]
-        self.img_name = args.style_path.split('/')[-1].split('.')[0]
-        self.nca_config = f"{args.nca_c_in}-{args.nca_fc_dim}"
 
         self.weight_dict = self.get_manual_weight()
 
-    def get_overflow_loss(self, input_dict, return_summary = True):
+    def get_overflow_loss(self, input_dict, return_summary=True):
         nca_state = input_dict['nca_state']
         overflow_loss = (nca_state - nca_state.clamp(-1.0, 1.0)).abs().mean()
         return overflow_loss, None, None
@@ -38,43 +36,49 @@ class Loss(torch.nn.Module):
             self.loss_weights["overflow"] = self.overflow_loss_weight
 
         if self.motion_loss_weight != 0:
-            self.loss_mapper["motion"] = MotionLoss(self.args)
-            self.loss_weights["motion"] = self.motion_loss_weight
+            self.loss_mapper["vector_field_motion"] = VectorFieldMotionLoss(self.args)
+            self.loss_weights["vector_field_motion"] = self.motion_loss_weight
 
         if self.texture_loss_weight != 0:
             self.loss_mapper["texture"] = TextureLoss(self.args)
             self.loss_weights["texture"] = self.texture_loss_weight
-        
+
         if self.video_motion_loss_weight != 0:
             self.loss_mapper["video_motion"] = VideoMotionLoss(self.args)
             self.loss_weights["video_motion"] = self.video_motion_loss_weight
 
-    def set_loss_weight(self, loss_log_before_motion=None, loss_name = 'video_motion', loss_num = 10.0, medium_mt = None):
-        if(loss_name == 'video_motion'):
+    def set_loss_weight(self, texture_loss_log=None, loss_name='video_motion', loss_num=10.0, medium_mt=None):
+        if loss_name == 'video_motion':
+            img_size = self.args.img_size[0]
+            img_name = self.args.style_path.split('/')[-1].split('.')[0]
+            nca_config = f"{self.args.nca_c_in}-{self.args.nca_fc_dim}"
+
             motion_loss_weight_reset = loss_num
-            if(medium_mt is not None):
-                if(self.img_size == 256):
+            if medium_mt is not None:
+                if img_size == 256:
                     motion_loss_weight_reset = min(10.0, max(medium_mt * 6.04 - 2.17, 2.0))
-                elif(self.img_size == 128):
+                elif img_size == 128:
                     motion_loss_weight_reset = min(10.0, max(medium_mt * 5.82 - 1.05, 2.0))
-                if(self.img_name in self.weight_dict[self.nca_config]):
-                        motion_loss_weight_reset = self.weight_dict[self.nca_config][self.img_name]
+                if img_name in self.weight_dict[nca_config]:
+                    motion_loss_weight_reset = self.weight_dict[nca_config][img_name]
 
             print(f'Set video motion loss weight to {motion_loss_weight_reset}')
             self.loss_weights["video_motion"] = motion_loss_weight_reset
+
+        if loss_name == 'vector_field_motion':
+            self.loss_weights["vector_field_motion"] = np.median(texture_loss_log) / 50.0
 
     def forward(self, input_dict, return_log=True, return_summary=True):
         loss = 0
         loss_log_dict = {}
         summary_dict = {}
         for loss_name in self.loss_mapper:
-            l, loss_log, sub_summary = self.loss_mapper[loss_name](input_dict, return_summary = return_summary)
+            l, loss_log, sub_summary = self.loss_mapper[loss_name](input_dict, return_summary=return_summary)
 
-            
             if loss_log is not None:
                 for sub_loss_name in loss_log:
                     loss_log_dict[f'{loss_name}-{sub_loss_name}'] = loss_log[sub_loss_name].item()
-            
+
             if sub_summary is not None:
                 for summary_name in sub_summary:
                     summary_dict[f'{loss_name}-{summary_name}'] = sub_summary[summary_name]
@@ -94,12 +98,14 @@ class Loss(torch.nn.Module):
             return output[0]
         else:
             return output
-    def get_manual_weight(self):
-        return {'12-96':{'ants':0.2,'fur':1.0, 'sea_2':4.0, 'flames':3.0, 
-                                'sky_clouds_1':0.25,
-                               'smoke_2':0.1, 'smoke_3':0.5, 'sea_3':2.0, 'calm_water_4':1.0,
-                                'calm_water_2':1.0},
-                      '16-128':{'ants':0.2,'fur':1.0, 'sea_2':4.0, 'flames':2.0, 
-                                'sky_clouds_1':0.25,
-                               'smoke_2':0.1, 'smoke_3':1.0, 'sea_3':2.0, 'calm_water_4':1.0, 
-                                'calm_water_2':1.0}}
+
+    @staticmethod
+    def get_manual_weight():
+        return {'12-96': {'ants': 0.2, 'fur': 1.0, 'sea_2': 4.0, 'flames': 3.0,
+                          'sky_clouds_1': 0.25,
+                          'smoke_2': 0.1, 'smoke_3': 0.5, 'sea_3': 2.0, 'calm_water_4': 1.0,
+                          'calm_water_2': 1.0},
+                '16-128': {'ants': 0.2, 'fur': 1.0, 'sea_2': 4.0, 'flames': 2.0,
+                           'sky_clouds_1': 0.25,
+                           'smoke_2': 0.1, 'smoke_3': 1.0, 'sea_3': 2.0, 'calm_water_4': 1.0,
+                           'calm_water_2': 1.0}}
