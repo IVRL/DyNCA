@@ -163,7 +163,7 @@ img_name = args.style_path.split('/')[-1].split('.')[0]
 img_name += f"-{args.static_style_path.split('/')[-1].split('.')[0]}"
 print(f"Motion From {img_name.split('-')[0]}, Texture From {img_name.split('-')[1]}")
 
-output_dir = f'{args.output_dir}/vanilla/{img_name}/{args.motion_texture_loss_type}-{args.motion_texture_loss_weight}-{nca_min_steps}-{nca_max_steps}-{args.motion_nca_interval}-{args.img_size[0]}-{args.motion_img_size[0]}-{args.nca_c_in}-{args.nca_fc_dim}-{args.nca_pos_emb}-{args.nca_pad_mode[:3]}-{f"{nca_perception_scales_str}"}/'
+output_dir = f'{args.output_dir}/{img_name}/{nca_min_steps}-{nca_max_steps}-{args.motion_nca_interval}-{args.img_size[0]}-{args.motion_img_size[0]}-{args.nca_c_in}-{args.nca_fc_dim}-{args.nca_pos_emb}-{args.nca_pad_mode[:3]}-{f"{nca_perception_scales_str}"}/'
 if (not args.video_only):
     os_output_dir = "\ ".join(output_dir.split(" "))
     os.system(f"mkdir -p {os_output_dir}")
@@ -349,13 +349,15 @@ else:
 
 nca_model.eval()
 synthesize_video(args, nca_model, video_length = args.video_length*20, 
-                 output_dir = output_dir, train_image_seq_texture = train_image_seq_texture, 
+                 output_dir = output_dir, 
+                 train_image_seq_texture = train_image_seq_texture, 
                  train_image_seq = train_image_seq, video_name = 'video', 
                  nca_step = args.motion_nca_interval // 2, 
                  record_loss = False, loss_class = DynamicTextureLoss,
                  seed_size = (nca_size_x, nca_size_y), fps = 25)
 synthesize_video(args, nca_model, video_length = args.video_length*20, 
-                 output_dir = output_dir, train_image_seq_texture = train_image_seq_texture, 
+                 output_dir = output_dir, 
+                 train_image_seq_texture = train_image_seq_texture, 
                  train_image_seq = train_image_seq, video_name = 'video_large', 
                  nca_step = args.motion_nca_interval // 2, 
                  record_loss = False, loss_class = DynamicTextureLoss,
