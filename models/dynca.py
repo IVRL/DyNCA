@@ -39,7 +39,7 @@ class DyNCA(torch.nn.Module):
         self.perception_scales = perception_scales
         self.fc_dim = fc_dim
         self.padding_mode = nca_pad_mode
-        assert seed_mode in DeepNCA.SEED_MODES
+        assert seed_mode in DyNCA.SEED_MODES
         self.seed_mode = seed_mode
         self.random_seed = 42
         self.pos_emb = pos_emb
@@ -123,9 +123,9 @@ class DyNCA(torch.nn.Module):
         x = x + y * udpate_mask
 
         if return_perception:
-            return x, self.to_feature_map(x), y_percept
+            return x, self.to_rgb(x), y_percept
         else:
-            return x, self.to_feature_map(x)
+            return x, self.to_rgb(x)
 
     def to_rgb(self, x):
         return x[:, :self.c_out, ...] * 2.0
