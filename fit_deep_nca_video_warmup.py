@@ -139,10 +139,11 @@ print('Preparing Style Video')
 train_image_seq = preprocess_video(args.style_path, img_size=args.img_size)
 train_image_seq = train_image_seq.permute(1, 0, 2, 3).to(DEVICE)  # T, C, H, W
 
-train_image_seq_texture, train_image_texture, train_image_texture_save, frame_idx_texture = get_train_image_seq(args,
-                                                                                                                flow_func=
-                                                                                                                DynamicTextureLoss.loss_mapper[
-                                                                                                                    "motion_texture"].get_motion_feature_two_frames)
+(train_image_seq_texture, train_image_texture,
+ train_image_texture_save, frame_idx_texture) = get_train_image_seq(
+    args,
+    flow_func=DynamicTextureLoss.loss_mapper["motion_texture"].get_motion_feature_two_frames
+)
 print(f"Select {frame_idx_texture} frame")
 
 video_length = train_image_seq.shape[0]
