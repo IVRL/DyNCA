@@ -1,17 +1,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
 
 
-# torch.backends.cudnn.deterministic = True
-# torch.backends.cudnn.benchmark = False
-# np.random.seed(424)
-# torch.manual_seed(424)
-# torch.cuda.manual_seed_all(424)
-
-class DeepNCA(torch.nn.Module):
+class DyNCA(torch.nn.Module):
     SEED_MODES = ['random', 'center_on', 'zeros']
     """
     Parameters
@@ -34,9 +27,9 @@ class DeepNCA(torch.nn.Module):
         Device used for performing the computation.
     """
 
-    def __init__(self, c_in, c_out, fc_dim=96, laplacian=True,
-                 nca_pad_mode = 'replicate',
-                 seed_mode='zeros', pos_emb = 'CPE',
+    def __init__(self, c_in, c_out, fc_dim=96,
+                 nca_pad_mode='replicate',
+                 seed_mode='zeros', pos_emb='CPE',
                  perception_scales=[0],
                  device=torch.device("cuda:0")):
 
@@ -44,7 +37,6 @@ class DeepNCA(torch.nn.Module):
         self.c_in = c_in
         self.c_out = c_out
         self.perception_scales = perception_scales
-        print("Current Multi Perception: ", self.perception_scales)
         self.fc_dim = fc_dim
         self.padding_mode = nca_pad_mode
         assert seed_mode in DeepNCA.SEED_MODES
@@ -53,17 +45,17 @@ class DeepNCA(torch.nn.Module):
         self.pos_emb = pos_emb
         self.device = device
         self.expand = 4
-        
+
         self.c_cond = 0
-        if(self.pos_emb == 'CPE'):
+        if self.pos_emb == 'CPE':
             self.pos_emb_2d = CPE2D()
             self.c_cond += 2
         else:
             self.pos_emb_2d = None
 
-        self.w1 = torch.nn.Conv2d((self.c_in) * self.expand + self.c_cond, self.fc_dim, 1, device=self.device)
+        self.w1 = torch.nn.Conv2d(self.c_in * self.expand + self.c_cond, self.fc_dim, 1, device=self.device)
         torch.nn.init.xavier_normal_(self.w1.weight, gain=0.2)
-        
+
         self.w2 = torch.nn.Conv2d(self.fc_dim, self.c_in, 1, bias=True, device=self.device)
         torch.nn.init.xavier_normal_(self.w2.weight, gain=0.1)
         torch.nn.init.zeros_(self.w2.bias)
@@ -92,13 +84,12 @@ class DeepNCA(torch.nn.Module):
         y1 = _perceive_with_torch(x, self.sobel_filter_x)
         y2 = _perceive_with_torch(x, self.sobel_filter_y)
         y3 = _perceive_with_torch(x, self.laplacian_filter)
-        
-        tensor_list = []
-        tensor_list.append(x)
+
+        tensor_list = [x]
         tensor_list += [y1, y2, y3]
-            
+
         y = torch.cat(tensor_list, dim=1)
-        
+
         if scale != 0:
             y = F.interpolate(y, size=(h, w), mode='bilinear', align_corners=False)
 
@@ -112,18 +103,15 @@ class DeepNCA(torch.nn.Module):
             perceptions.append(z)
 
         y = sum(perceptions)
-        y = y / len(self.perception_scales)        
-        
+        y = y / len(self.perception_scales)
+
         if pos_emb_mat is not None:
             y = torch.cat([y, pos_emb_mat], dim=1)
 
         return y
 
-
     def forward(self, x, update_rate=0.5, return_perception=False):
-        batch_size = x.shape[0]
-            
-        if (self.pos_emb_2d):
+        if self.pos_emb_2d:
             y_percept = self.perceive_multiscale(x, pos_emb_mat=self.pos_emb_2d(x))
         else:
             y_percept = self.perceive_multiscale(x)
@@ -139,11 +127,10 @@ class DeepNCA(torch.nn.Module):
         else:
             return x, self.to_feature_map(x)
 
-    def to_feature_map(self, x):
+    def to_rgb(self, x):
         return x[:, :self.c_out, ...] * 2.0
 
     def seed(self, n, size=128):
-        
         if isinstance(size, int):
             size_x, size_y = size, size
         else:
@@ -161,21 +148,21 @@ class DeepNCA(torch.nn.Module):
             torch.manual_seed(self.random_seed)
             torch.cuda.manual_seed_all(self.random_seed)
             sd = (torch.rand(1, self.c_in, size_y, size_x) - 0.5)
-            # seed = torch.randn(1, self.c_in, size_y, size_x)
         else:
             sd = None
 
         sd = torch.cat([sd.clone() for _ in range(n)]).to(self.device)
 
         return sd
-    def forward_nsteps(self, input_state, step_n, update_rate=0.5, return_middle_feature = False):
+
+    def forward_nsteps(self, input_state, step_n, update_rate=0.5, return_middle_feature=False):
         nca_state = input_state
         middle_feature_list = []
         for _ in range(step_n):
             nca_state, nca_feature = self(nca_state, update_rate=update_rate)
-            if(return_middle_feature):
+            if return_middle_feature:
                 middle_feature_list.append(nca_feature)
-        if(return_middle_feature):
+        if return_middle_feature:
             return nca_state, nca_feature, middle_feature_list
         return nca_state, nca_feature
 
@@ -186,9 +173,6 @@ class CPE2D(nn.Module):
     """
 
     def __init__(self):
-        """
-        :param channels: The last dimension of the tensor you want to apply pos emb to.
-        """
         super(CPE2D, self).__init__()
         self.cached_penc = None
         self.last_tensor_shape = None
@@ -196,7 +180,7 @@ class CPE2D(nn.Module):
     def forward(self, tensor):
         """
         :param tensor: A 4d tensor of size (batch_size, ch, x, y)
-        :return: Positional Encoding Matrix of size (batch_size, ch, x, y)
+        :return: Positional Encoding Matrix of size (batch_size, 2, x, y)
         """
         if len(tensor.shape) != 4:
             raise RuntimeError("The input tensor has to be 4d!")

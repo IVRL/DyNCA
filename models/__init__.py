@@ -20,14 +20,15 @@ def show_progress(block_num, block_size, total_size):
     else:
         pbar.finish()
         pbar = None
-    
+
+
 def _load_MSOEmultiscale_model(model_name, models_path, download=False):
     assert model_name == 'two_stream_dynamic_model'
     if not os.path.exists(f'{models_path}/two_stream/{model_name}.pth'):
         download = True
-    
+
     if download:
-    
+
         if os.path.exists(f'{models_path}/two_stream/{model_name}.pth'):
             os.system(f"rm -rf {models_path}/two_stream")
         import gdown
@@ -35,18 +36,20 @@ def _load_MSOEmultiscale_model(model_name, models_path, download=False):
         output = f'{models_path}/two_stream/{model_name}.pth'
         os.system(f"mkdir -p {models_path}/two_stream/")
         gdown.download(url, output, quiet=False)
-        
-    from models.MSOEnet.MSOEmultiscale import MSOEmultiscale
-    
+
+    from models.MSOEmultiscale import MSOEmultiscale
+
     model = MSOEmultiscale()
     states_dict = torch.load(f'{models_path}/two_stream/{model_name}.pth')
     model.load_state_dict(states_dict)
     model = model.eval()
-    
+
     return model
-    
+
+
 _model_factories = {}
-_model_factories['two_stream_dynamic'] = partial(_load_MSOEmultiscale_model, model_name='two_stream_dynamic_model') 
+_model_factories['two_stream_dynamic'] = partial(_load_MSOEmultiscale_model, model_name='two_stream_dynamic_model')
+
 
 def get_available_models():
     return _model_factories.keys()
@@ -54,5 +57,3 @@ def get_available_models():
 
 def get_model(name, *args, **kwargs):
     return _model_factories[name](*args, **kwargs)
-
-
