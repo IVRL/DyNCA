@@ -17,7 +17,7 @@ from collections import defaultdict
 import random
 
 import models
-from models.nca.dynca import DyNCA
+from models.dynca import DyNCA
 from utils.misc.misc import get_start_frame_idx, save_summary
 from utils.misc.display_utils import plot_train_log, save_train_image
 from utils.misc.preprocess_texture import preprocess_style_image, preprocess_video, select_frame, get_train_image_seq
@@ -28,7 +28,7 @@ from utils.loss.loss import Loss
 warnings.filterwarnings('ignore')
 warnings.simplefilter('ignore')
 torch.backends.cudnn.deterministic = True
-from utils.misc.video_utils import VideoWriter, synthesize_video
+from utils.misc.video_utils import VideoWriter
 import argparse
 
 parser = argparse.ArgumentParser(
@@ -39,16 +39,13 @@ parser.add_argument("--img_size", nargs=2, type=int, help="Image size (width hei
                     default=[256, 256], dest='img_size')
 parser.add_argument("--motion_img_size", nargs=2, type=int, help="Image size (width height) | default = (256, 256)",
                     default=[128, 128], dest='motion_img_size')
-parser.add_argument("--output_dir", type=str, help="Output directory", default="out/DeepNCA_Texture/",
+parser.add_argument("--output_dir", type=str, help="Output directory", default="out/VideoMotion/",
                     dest='output_dir')
 parser.add_argument("--video", action='store_true', help="Create video frames?", dest='video')
 parser.add_argument("--video_length", type=float, help="Video length in seconds (not interpolated)", default=10,
                     dest='video_length')
 parser.add_argument("--video_only", action='store_true', help="Only generate video using pretrained model",
                     dest='video_only')
-parser.add_argument("--sort_frame", type=int, default=0,
-                    help="Frame sampling strategy during training",
-                    dest='sort_frame')
 # Target
 parser.add_argument("--style_path", type=str, help="Path to style video", default='./image/video/escalator.gif',
                     dest='style_path')
@@ -354,6 +351,73 @@ if (not args.video_only):
     torch.save(nca_model, f"{output_dir}/model.pth")
 else:
     nca_model = torch.load(f"{output_dir}/model.pth")
+
+
+def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_texture, train_image_seq,
+                     video_name='video', nca_step=32, record_loss=False, loss_class=None, seed_size=[256, 256], fps=25):
+    motion_video_length, texture_videl_length = len(train_image_seq), len(train_image_seq_texture)
+    with VideoWriter(filename=f"{output_dir}/{video_name}.mp4", fps=fps, autoplay=False) as vid, torch.no_grad():
+        h = nca_model.seed(1, size=seed_size)
+        if (record_loss):
+            assert loss_class is not None
+            prev_z = None
+            total_motion_texture_loss_avg = 0.0
+            total_texture_loss_avg = 0.0
+        for k in tqdm(range(int(video_length)), desc="Making the video..."):
+            step_n = nca_step
+            nca_state, nca_feature = nca_model.forward_nsteps(h, step_n)
+
+            z = nca_feature
+
+            if (record_loss):
+                input_dict = {}
+                cur_motion_texture_loss_avg = 0.0
+                cur_texture_loss_avg = 0.0
+
+                if (prev_z is None):
+                    prev_z = z
+                else:
+                    generated_image_list = [prev_z, z]
+                    input_dict['generated_image_list'] = [generated_image_list[-1]]
+                    input_dict['generated_image_list_motion'] = generated_image_list
+                    for j in range(texture_videl_length):
+                        '''Compute Texture loss between current generated image and all texture frames'''
+                        target_image_list = []
+                        target_image_list.append(train_image_seq_texture[j:j + 1])
+                        input_dict['target_image_list'] = target_image_list
+                        texture_loss, _, _ = loss_class.loss_mapper['texture'](input_dict, return_summary=False)
+                        cur_texture_loss_avg += texture_loss.item()
+                    cur_texture_loss_avg /= texture_videl_length
+
+                    for j in range(motion_video_length - 1):
+                        target_motion_image_list = []
+                        target_motion_image_list.append(train_image_seq[j:j + 1])
+                        target_motion_image_list.append(train_image_seq[j + 1:j + 2])
+                        input_dict['target_motion_image_list'] = target_motion_image_list
+                        motion_texture_loss, _, _ = loss_class.loss_mapper['motion_texture'](input_dict,
+                                                                                             return_summary=False)
+                        cur_motion_texture_loss_avg += motion_texture_loss.item()
+                    cur_motion_texture_loss_avg /= (motion_video_length - 1)
+
+                    total_texture_loss_avg += cur_texture_loss_avg
+                    total_motion_texture_loss_avg += cur_motion_texture_loss_avg
+
+                    prev_z = z
+
+            h = nca_state
+
+            img = z.detach().cpu().numpy()[0]
+            img = img.transpose(1, 2, 0)
+
+            img = np.clip(img, -1.0, 1.0)
+            img = (img + 1.0) / 2.0
+            vid.add(img)
+        if (record_loss):
+            total_texture_loss_avg /= float(args.video_length * 40)
+            total_motion_texture_loss_avg /= float(args.video_length * 40)
+            with open(f'{output_dir}/final_loss_test.txt', 'w') as f:
+                f.write(f'{total_texture_loss_avg, total_motion_texture_loss_avg}')
+
 
 nca_model.eval()
 synthesize_video(args, nca_model, video_length=args.video_length * 20,
