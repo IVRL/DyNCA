@@ -26,7 +26,6 @@ class VectorFieldMotionLoss(torch.nn.Module):
 
         self.cos_sim = torch.nn.CosineSimilarity(dim=1)
         self.target_motion_vec = args.target_motion_vec
-        self.target_motion_strength = args.target_motion_strength
         self.img_size_for_loss = args.motion_img_size
 
         self.motion_model_name = args.motion_model_name

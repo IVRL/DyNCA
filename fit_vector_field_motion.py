@@ -42,21 +42,22 @@ parser.add_argument("--video_only", action='store_true', help="Only generate vid
                     dest='video_only')
 
 # Target
-parser.add_argument("--style_path", type=str, help="Path to the appearance image", default='./image/style/bubble.jpg',
-                    dest='style_path')
+parser.add_argument("--target_path", type=str, help="Path to the target appearance image",
+                    default='data/VectorFieldMotion/Appearance/bubbly_0101.jpg',
+                    dest='target_path')
 
 # NCA
-parser.add_argument("--nca_pool_size", type=int, help="Number of elements in the NCA pool", default=128,
+parser.add_argument("--nca_pool_size", type=int, help="Number of elements in the NCA pool", default=256,
                     dest='nca_pool_size')
-parser.add_argument("--nca_step_range", nargs=2, type=int, help="Range of steps to apply NCA (32, 96)",
-                    default=[32, 96], dest='nca_step_range')
+parser.add_argument("--nca_step_range", nargs=2, type=int, help="Range of steps to apply NCA (32, 128)",
+                    default=[32, 128], dest='nca_step_range')
 parser.add_argument("--nca_inject_seed_step", type=int, help="Inject seed every time after this many iterations",
                     default=8, dest='nca_inject_seed_step')
-parser.add_argument("--nca_channels", type=int, help="Number of Channels in the NCA model", default=16, dest='nca_c_in')
-parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default=64, dest='nca_fc_dim')
-parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA filters", default='random',
+parser.add_argument("--nca_channels", type=int, help="Number of Channels in the NCA model", default=12, dest='nca_c_in')
+parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default=96, dest='nca_fc_dim')
+parser.add_argument("--nca_seed_mode", type=str, help="Seed mode of the NCA", default='zeros',
                     choices=DyNCA.SEED_MODES, dest='nca_seed_mode')
-parser.add_argument("--nca_padding_mode", type=str, default='constant',
+parser.add_argument("--nca_padding_mode", type=str, default='replicate',
                     help="Padding mode when NCA cells are perceiving",
                     choices=['constant', 'reflect', 'replicate', 'circular'],
                     dest='nca_padding_mode')
@@ -116,7 +117,7 @@ DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 
 DynamicTextureLoss = Loss(args)
 
-style_img = Image.open(args.style_path)
+style_img = Image.open(args.target_path)
 input_img_style, style_img_tensor = preprocess_style_image(style_img, model_type='vgg',
                                                            img_size=args.img_size,
                                                            batch_size=args.batch_size)  # 0-1
@@ -128,7 +129,7 @@ nca_perception_scales = args.nca_perception_scales[0]
 assert nca_perception_scales[0] == 0
 
 '''Create the log folder'''
-img_name = args.style_path.split('/')[-1].split('.')[0]
+img_name = args.target_path.split('/')[-1].split('.')[0]
 print(f"Target Appearance: {img_name}")
 
 output_dir = f'{args.output_dir}/{img_name}/{args.motion_field_name}/'
@@ -249,10 +250,9 @@ for i in pbar:
     for loss_name in batch_loss_log_dict:
         loss_log_dict[loss_name].append(batch_loss_log_dict[loss_name])
 
-    if i % interval == 0:
-        if i >= interval:
-            print("Updating the motion loss weight")
-            DynamicTextureLoss.set_loss_weight(loss_log_dict["appearance"], "vector_field_motion")
+    if i % interval == 0 and i > 0:
+        print("Updating the motion loss weight")
+        DynamicTextureLoss.set_loss_weight(loss_log_dict["appearance"], "vector_field_motion")
 
     with torch.no_grad():
         batch_loss.backward()
