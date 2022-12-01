@@ -1,9 +1,7 @@
 import os
-
 import warnings
 
 import json
-from datetime import datetime
 import torch
 from tqdm import tqdm
 import numpy as np
@@ -16,6 +14,7 @@ from models.dynca import DyNCA
 
 from utils.misc.display_utils import plot_train_log, save_train_image
 from utils.misc.preprocess_texture import preprocess_style_image
+from utils.misc.video_utils import VideoWriter
 
 from utils.loss.loss import Loss
 
@@ -29,14 +28,12 @@ parser = argparse.ArgumentParser(description='DyNCA - Dynamic Texture Synthesis 
 
 # Add the arguments
 parser.add_argument("--motion_img_size", nargs=2, type=int,
-                    help="Image size (width height) to compute motion loss | default = (256, 256)",
+                    help="Image size (width height) to compute motion loss | default = (128, 128)",
                     default=[128, 128], dest='motion_img_size')
-parser.add_argument("--texture_img_size", nargs=2, type=int,
-                    help="Image size (width height) to compute texture loss| default = (256, 256)",
-                    default=[128, 128], dest='texture_img_size')
-parser.add_argument("--nca_seed_size", nargs=2, type=int,
-                    help="Seed size of NCA model (width, height) | default = (256, 256)",
-                    default=[128, 128], dest='nca_seed_size')
+parser.add_argument("--img_size", nargs=2, type=int,
+                    help="Seed size of NCA model (width, height) | default = (128, 128)",
+                    default=[128, 128], dest='img_size')
+
 parser.add_argument("--output_dir", type=str, help="Output directory", default="out/VectorFieldMotion/",
                     dest='output_dir')
 parser.add_argument("--video_length", type=float, help="Video length in seconds (not interpolated)", default=10,
@@ -119,40 +116,20 @@ DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 
 DynamicTextureLoss = Loss(args)
 
-scale_factor = 1.0
-c_out = 3
-
 style_img = Image.open(args.style_path)
 input_img_style, style_img_tensor = preprocess_style_image(style_img, model_type='vgg',
-                                                           img_size=args.texture_img_size,
+                                                           img_size=args.img_size,
                                                            batch_size=args.batch_size)  # 0-1
 input_img_style = input_img_style.to(DEVICE)
 
-nca_size_x, nca_size_y = int(args.nca_seed_size[0]), int(args.nca_seed_size[1])
-
-scales = args.scales[0]  # [4, 1]
-print(scales)
-empty_str = ""
-scale_str = f'{empty_str.join([str(x) for x in scales])}'
-assert scales[-1] == 1
-assert nca_size_x % scales[0] == 0
-assert nca_size_y % scales[0] == 0
+nca_size_x, nca_size_y = int(args.img_size[0]), int(args.img_size[1])
 
 nca_perception_scales = args.nca_perception_scales[0]
-print(nca_perception_scales)
-empty_str = "x"
-nca_perception_scales_str = f'pscale_[{empty_str.join([str(x) for x in nca_perception_scales])}]'
 assert nca_perception_scales[0] == 0
-
-scale_sizes = []
-for scale in scales:
-    scale_sizes.append((nca_size_x // scale, nca_size_y // scale))
 
 '''Create the log folder'''
 img_name = args.style_path.split('/')[-1].split('.')[0]
-print(f"Target Texture: {img_name}")
-dt = datetime.now()
-timestamp = f"{dt.month}-{dt.day}-{dt.hour}-{dt.minute}"
+print(f"Target Appearance: {img_name}")
 
 output_dir = f'{args.output_dir}/{img_name}/{args.motion_field_name}/'
 
@@ -162,11 +139,12 @@ if not args.video_only:
         os.system(f"rm -rf {output_dir}/*")
     except:
         pass
-print('Create NCA model')
+
+print('Creating DyNCA model')
 
 nca_min_steps, nca_max_steps = args.nca_step_range
 
-nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
+nca_model = DyNCA(c_in=args.nca_c_in, c_out=3, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
                   pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
                   perception_scales=nca_perception_scales,
@@ -178,8 +156,6 @@ param_n = sum(p.numel() for p in nca_model.parameters())
 print('DyNCA param count:', param_n)
 
 optimizer = torch.optim.Adam(nca_model.parameters(), lr=args.lr)
-
-from utils.misc.video_utils import VideoWriter
 
 
 def save_video(video_name, video_length, size_factor=1.0, step_n=8):
@@ -202,8 +178,9 @@ def save_video(video_name, video_length, size_factor=1.0, step_n=8):
 
 args_log = copy.deepcopy(args.__dict__)
 del args_log['DEVICE']
-if ('target_motion_vec' in args_log):
+if 'target_motion_vec' in args_log:
     del args_log['target_motion_vec']
+
 with open(f'{output_dir}/args.txt', 'w') as f:
     json.dump(args_log, f, indent=2)
 
@@ -216,7 +193,7 @@ lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                     args.lr_decay_step[0],
                                                     0.5)
 
-input_dict = {}  # input dictionary for loss computing
+input_dict = {}  # input dictionary for computing the loss functions
 input_dict['target_style_images'] = input_img_style  # 0,1
 
 interval = args.motion_weight_change_interval
@@ -275,7 +252,7 @@ for i in pbar:
     if i % interval == 0:
         if i >= interval:
             print("Updating the motion loss weight")
-            DynamicTextureLoss.set_loss_weight(loss_log_dict["texture"], "vector_field_motion")
+            DynamicTextureLoss.set_loss_weight(loss_log_dict["appearance"], "vector_field_motion")
 
     with torch.no_grad():
         batch_loss.backward()
@@ -315,18 +292,20 @@ for i in pbar:
             plot_log_dict = {}
             plot_log_dict['Overflow Loss'] = (loss_log_dict['overflow'], True, True)
             num_plots = 1
-            if "texture" in loss_log_dict:
+            if "appearance" in loss_log_dict:
                 num_plots += 1
-                plot_log_dict['Texture Loss'] = (loss_log_dict['texture'], True, True)
+                plot_log_dict['Texture Loss'] = (loss_log_dict['appearance'], True, True)
 
             plot_train_log(plot_log_dict, num_plots, save_path=f"{output_dir}/losses.jpg")
 
-            if "motion" in loss_log_dict:
+            if "vector_field_motion" in loss_log_dict:
                 plot_log_dict = {}
                 plot_log_dict['Motion Loss'] = (
-                    loss_log_dict['motion'][args.motion_loss_iteration:], False, False)
-                plot_log_dict['Motion Direction Loss'] = (loss_log_dict['motion-direction_loss'], False, False)
-                plot_log_dict['Motion Strength Loss'] = (loss_log_dict['motion-strength_diff'], False, False)
+                    loss_log_dict['vector_field_motion'], False, False)
+                plot_log_dict['Motion Direction Loss'] = (
+                    loss_log_dict['vector_field_motion-direction_loss'], False, False)
+                plot_log_dict['Motion Strength Loss'] = (
+                    loss_log_dict['vector_field_motion-strength_diff'], False, False)
                 plot_train_log(plot_log_dict, 5, save_path=f"{output_dir}/losses_motion.jpg")
 
         if i % 5 == 0:
