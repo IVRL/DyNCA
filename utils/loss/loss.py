@@ -50,7 +50,7 @@ class Loss(torch.nn.Module):
     def set_loss_weight(self, appearance_loss_log=None, loss_name='video_motion', loss_num=10.0, medium_mt=None):
         if loss_name == 'video_motion':
             img_size = self.args.img_size[0]
-            img_name = self.args.style_path.split('/')[-1].split('.')[0]
+            img_name = self.args.target_dynamics_path.split('/')[-1].split('.')[0]
             nca_config = f"{self.args.nca_c_in}-{self.args.nca_fc_dim}"
 
             motion_loss_weight_reset = loss_num
@@ -62,7 +62,6 @@ class Loss(torch.nn.Module):
                 if img_name in self.weight_dict[nca_config]:
                     motion_loss_weight_reset = self.weight_dict[nca_config][img_name]
 
-            print(f'Set video motion loss weight to {motion_loss_weight_reset}')
             self.loss_weights["video_motion"] = motion_loss_weight_reset
 
         if loss_name == 'vector_field_motion':

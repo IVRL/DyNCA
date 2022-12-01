@@ -1,18 +1,27 @@
 import os
+import sys
 
 import warnings
 
 import json
+from datetime import datetime
 import torch
+import torchvision.models as torch_models
 from tqdm import tqdm
 import numpy as np
+from PIL import Image
 import copy
-
+import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
 from collections import defaultdict
+import random
+
+import models
 from models.dynca import DyNCA
 from utils.misc.misc import get_start_frame_idx, save_summary
 from utils.misc.display_utils import plot_train_log, save_train_image
-from utils.misc.preprocess_texture import preprocess_video, get_train_image_seq
+from utils.misc.preprocess_texture import preprocess_style_image, preprocess_video, select_frame, get_train_image_seq
+import matplotlib.pyplot as plt
 
 from utils.loss.loss import Loss
 
@@ -22,67 +31,67 @@ torch.backends.cudnn.deterministic = True
 from utils.misc.video_utils import VideoWriter
 import argparse
 
-parser = argparse.ArgumentParser(description='DyNCA - Dynamic Texture Synthesis from Dynamic Texture Videos')
+parser = argparse.ArgumentParser(
+    description='DyNCA on DyTS or dynamic style transfer')
 
 # Add the arguments
 parser.add_argument("--img_size", nargs=2, type=int, help="Image size (width height) | default = (256, 256)",
                     default=[256, 256], dest='img_size')
 parser.add_argument("--motion_img_size", nargs=2, type=int, help="Image size (width height) | default = (256, 256)",
-                    default=[128, 128], dest='motion_img_size')
+                    default=[256, 256], dest='motion_img_size')
 parser.add_argument("--output_dir", type=str, help="Output directory", default="out/VideoMotion/",
                     dest='output_dir')
 parser.add_argument("--video", action='store_true', help="Create video frames?", dest='video')
-parser.add_argument("--video_length", type=float, help="Video length in seconds (not interpolated)", default=10,
+parser.add_argument("--video_length", type=float, help="Video length in seconds (not interpolated)", default=20,
                     dest='video_length')
 parser.add_argument("--video_only", action='store_true', help="Only generate video using pretrained model",
                     dest='video_only')
 # Target
-parser.add_argument("--style_path", type=str, help="Path to style video", default='./image/video/escalator.gif',
-                    dest='style_path')
-parser.add_argument("--static_style_path", type=str, help="Path to style image",
-                    default='./image/style/escalator.png',
-                    dest='static_style_path')
+parser.add_argument("--target_dynamics_path", type=str, help="Path to style video", default='./data/VideoMotion/Motion/water_3.gif',
+                    dest='target_dynamics_path')
+parser.add_argument("--target_appearance_path", type=str, help="Path to style image",
+                    default='./data/VideoMotion/Appearance/water_3.gif',
+                    dest='target_appearance_path')
 
 # NCA
-parser.add_argument("--nca_pool_size", type=int, help="Number of elements in the NCA pool", default=128,
+parser.add_argument("--nca_pool_size", type=int, help="Number of elements in the NCA pool", default=256,
                     dest='nca_pool_size')
 parser.add_argument("--nca_step_range", nargs=2, type=int, help="Range of steps to apply NCA (32, 96)",
-                    default=[32, 96], dest='nca_step_range')
+                    default=[80, 144], dest='nca_step_range')
 parser.add_argument("--nca_inject_seed_step", type=int, help="Inject seed every time after this many iterations",
                     default=8, dest='nca_inject_seed_step')
 parser.add_argument("--nca_channels", type=int, help="Number of Channels in the NCA model", default=16, dest='nca_c_in')
-parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default=64, dest='nca_fc_dim')
+parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default=128, dest='nca_fc_dim')
 
-parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA filters", default='random',
+parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA filters", default='zeros',
                     choices=DyNCA.SEED_MODES, dest='nca_seed_mode')
-parser.add_argument("--nca_padding_mode", type=str, default='replicate',
-                    help="Padding mode when NCA cells are perceiving",
-                    choices=['constant', 'reflect', 'replicate', 'circular'],
-                    dest='nca_padding_mode')
-parser.add_argument("--nca_pos_emb", type=str, default='CPE', choices=['None', 'CPE'],
-                    help="The positional embedding mode to use. CPE (Cartesian), or None",
+
+parser.add_argument("--nca_pad_mode", type=str, default='replicate',
+                    help="Padding used for NCA",
+                    dest='nca_pad_mode')
+parser.add_argument("--nca_pos_emb", type=str, default='CPE',
+                    help="Positional encoding type of NCA",
                     dest='nca_pos_emb')
 parser.add_argument("--nca_perception_scales", nargs='+', action='append', type=int,
                     help="Specify the scales at which the NCA perception will be performed.",
                     default=[], dest='nca_perception_scales')
 
-# Loss Functions
-
-# Appearance
-parser.add_argument("--texture_loss_weight", type=float,
+# Loss Function
+# Texture 
+parser.add_argument("--appearance_loss_weight", type=float,
                     help="Coefficient of Loss used for Texture or Activation Maximization", default=1.0,
-                    dest='texture_loss_weight')
-parser.add_argument("--texture_loss_type", type=str,
+                    dest='appearance_loss_weight')
+parser.add_argument("--appearance_loss_type", type=str,
                     help="The method to compute style loss. Sliced W-distance Loss, OT (Optimal transport), Gram",
                     choices=["SlW", "OT", "Gram"],
                     default="OT",
-                    dest='texture_loss_type')
+                    dest='appearance_loss_type')
 parser.add_argument("--texture_model", type=str,
                     help="The model to compute style loss. vgg", default="vgg",
                     dest='texture_model')
-# Video Motion
-parser.add_argument("--motion_loss_weight", type=float,
-                    help="Coefficient of Motion Texture Loss for temporal texture synthesis", default=3.0,
+# Motion-Texture (Temporal Texture)
+parser.add_argument("--video_motion_loss_weight", type=float,
+                    help="Coefficient of Motion Texture Loss for temporal texture synthesis", default=1.0,
                     dest='video_motion_loss_weight')
 parser.add_argument("--video_motion_loss_type", type=str,
                     help="The method to compute style loss on motion features. Sliced W-distance Loss, OT (Optimal transport), Gram",
@@ -97,20 +106,17 @@ parser.add_argument("--nca_warmup_iter", type=int,
                     dest='nca_warmup_iter')
 parser.add_argument("--motion_nca_interval", type=int,
                     help="Number of NCA steps that represents motion between two consecutive frames.",
-                    default=16,
+                    default=64,
                     dest='motion_nca_interval')
 # Overflow
 parser.add_argument("--overflow_loss_weight", type=float, help="Coefficient of Overflow Loss", default=1.0,
                     dest='overflow_loss_weight')
-# Regularization 
-parser.add_argument("--regularization_loss_weight", type=float, help="Coefficient of Latent Code Regularization Loss",
-                    default=0.0, dest='regularization_loss_weight')
 
 # Optimization
-parser.add_argument("--iterations", type=int, help="Number of iterations", default=2000, dest='max_iterations')
-parser.add_argument("--save_every", type=int, help="Save image iterations", default=64, dest='save_every')
-parser.add_argument("--batch_size", type=int, help="Batch size", default=4, dest='batch_size')
-parser.add_argument("--lr", type=float, help="Learning rate", default=5e-3, dest='lr')
+parser.add_argument("--iterations", type=int, help="Number of iterations", default=5000, dest='max_iterations')
+parser.add_argument("--save_every", type=int, help="Save image iterations", default=501, dest='save_every')
+parser.add_argument("--batch_size", type=int, help="Batch size", default=3, dest='batch_size')
+parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, dest='lr')
 parser.add_argument("--lr_decay_step", nargs='+', action='append', type=int,
                     help="Specify the number of iterations for lr decay",
                     default=[], dest='lr_decay_step')
@@ -118,6 +124,10 @@ parser.add_argument("--lr_decay_step", nargs='+', action='append', type=int,
 parser.add_argument("--DEVICE", type=str, help="Cuda device to use", default="cuda:0", dest='DEVICE')
 
 args = parser.parse_args()
+if(len(args.lr_decay_step) == 0):
+    args.lr_decay_step = [[1000,2000]]
+if(len(args.nca_perception_scales) == 0):
+    args.nca_perception_scales = [[0,1]]
 
 DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 
@@ -127,7 +137,7 @@ scale_factor = 1.0
 c_out = 3
 
 print('Preparing Style Video')
-train_image_seq = preprocess_video(args.style_path, img_size=args.img_size)
+train_image_seq = preprocess_video(args.target_dynamics_path, img_size=args.img_size)
 train_image_seq = train_image_seq.permute(1, 0, 2, 3).to(DEVICE)  # T, C, H, W
 
 (train_image_seq_texture, train_image_texture,
@@ -150,11 +160,11 @@ nca_perception_scales_str = f'per{empty_str.join([str(x) for x in nca_perception
 assert nca_perception_scales[0] == 0
 nca_min_steps, nca_max_steps = args.nca_step_range
 '''Create the log folder'''
-motion_img_name = args.style_path.split('/')[-1].split('.')[0]
-texture_img_name = args.static_style_path.split('/')[-1].split('.')[0]
-print(f"Motion From {motion_img_name}, Texture From {texture_img_name}")
+motion_img_name = args.target_dynamics_path.split('/')[-1].split('.')[0]
+texture_img_name = args.target_appearance_path.split('/')[-1].split('.')[0]
+print(f"Motion From {motion_img_name}, Appearance From {texture_img_name}")
 
-output_dir = f'{args.output_dir}/{texture_img_name}/{motion_img_name}/{nca_min_steps}-{nca_max_steps}-{args.motion_nca_interval}-{args.img_size[0]}-{args.motion_img_size[0]}-{args.nca_c_in}-{args.nca_fc_dim}-{args.nca_pos_emb}-{args.nca_padding_mode[:3]}-{f"{nca_perception_scales_str}"}/'
+output_dir = f'{args.output_dir}/{texture_img_name}/{motion_img_name}/'
 if (not args.video_only):
     os_output_dir = "\ ".join(output_dir.split(" "))
     os.system(f"mkdir -p {os_output_dir}")
@@ -168,7 +178,7 @@ nca_model_list = []
 
 nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
-                  pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
+                  pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
                   perception_scales=nca_perception_scales,
                   device=DEVICE)
 
@@ -266,8 +276,7 @@ for i in pbar:
         if (seed_injection == False):
             loss_log_dict[loss_name].append(min(batch_loss_log_dict[loss_name], 15.0))
 
-    if (i == args.nca_warmup_iter and args.video_motion_loss_weight > 0.0):  #
-        print("Warm Up Ends. Re-Initialize NCA")
+    if (i == args.nca_warmup_iter and args.video_motion_loss_weight > 0.0): 
 
         DynamicTextureLoss.set_loss_weight(loss_name='video_motion', loss_num=args.video_motion_loss_weight,
                                            medium_mt=np.median(loss_log_dict[
@@ -282,7 +291,7 @@ for i in pbar:
 
         nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                           seed_mode=args.nca_seed_mode,
-                          pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
+                          pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
                           perception_scales=nca_perception_scales,
                           device=DEVICE)
 
@@ -303,7 +312,7 @@ for i in pbar:
                 f.write(f'Epochs {i}')
             print('Loss is NaN. Train Failed. Exit.')
             exit()
-        if (batch_loss_log_dict['texture'] > 50.0):
+        if (batch_loss_log_dict['appearance'] > 50.0):
             anomaly_loss = True
         for p_name, p in nca_model.named_parameters():
             p.grad /= (p.grad.norm() + 1e-8)  # normalize gradients
@@ -324,7 +333,7 @@ for i in pbar:
             num_plots = 2
 
             plot_log_dict['Overflow Loss'] = (loss_log_dict['overflow'], True, True)
-            plot_log_dict['Texture Loss'] = (loss_log_dict['texture'], False, True)
+            plot_log_dict['Appearance Loss'] = (loss_log_dict['appearance'], False, True)
             plot_train_log(plot_log_dict, num_plots, save_path=f"{output_dir}/losses.jpg")
 
             if "video_motion" in loss_log_dict:
@@ -332,7 +341,7 @@ for i in pbar:
 
                 plot_log_dict = {}
                 plot_log_dict['Motion Texture Loss'] = (loss_log_dict['video_motion'], False, False)
-                plot_train_log(plot_log_dict, 4, save_path=f"{output_dir}/losses_video_motion.jpg")
+                plot_train_log(plot_log_dict, 1, save_path=f"{output_dir}/losses_video_motion.jpg")
 
         if (i % 5 == 0):
             display_dict = copy.deepcopy(batch_loss_log_dict)
@@ -354,7 +363,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
             assert loss_class is not None
             prev_z = None
             total_video_motion_loss_avg = 0.0
-            total_texture_loss_avg = 0.0
+            total_appearance_loss_avg = 0.0
         for k in tqdm(range(int(video_length)), desc="Making the video..."):
             step_n = nca_step
             nca_state, nca_feature = nca_model.forward_nsteps(h, step_n)
@@ -364,7 +373,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
             if (record_loss):
                 input_dict = {}
                 cur_video_motion_loss_avg = 0.0
-                cur_texture_loss_avg = 0.0
+                cur_appearance_loss_avg = 0.0
 
                 if (prev_z is None):
                     prev_z = z
@@ -377,9 +386,9 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
                         target_image_list = []
                         target_image_list.append(train_image_seq_texture[j:j + 1])
                         input_dict['target_image_list'] = target_image_list
-                        texture_loss, _, _ = loss_class.loss_mapper['texture'](input_dict, return_summary=False)
-                        cur_texture_loss_avg += texture_loss.item()
-                    cur_texture_loss_avg /= texture_videl_length
+                        appearance_loss, _, _ = loss_class.loss_mapper['Appearance'](input_dict, return_summary=False)
+                        cur_appearance_loss_avg += appearance_loss.item()
+                    cur_appearance_loss_avg /= texture_videl_length
 
                     for j in range(motion_video_length - 1):
                         target_motion_image_list = []
@@ -387,11 +396,11 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
                         target_motion_image_list.append(train_image_seq[j + 1:j + 2])
                         input_dict['target_motion_image_list'] = target_motion_image_list
                         video_motion_loss, _, _ = loss_class.loss_mapper['video_motion'](input_dict,
-                                                                                         return_summary=False)
+                                                                                             return_summary=False)
                         cur_video_motion_loss_avg += video_motion_loss.item()
                     cur_video_motion_loss_avg /= (motion_video_length - 1)
 
-                    total_texture_loss_avg += cur_texture_loss_avg
+                    total_appearance_loss_avg += cur_appearance_loss_avg
                     total_video_motion_loss_avg += cur_video_motion_loss_avg
 
                     prev_z = z
@@ -405,10 +414,10 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
             img = (img + 1.0) / 2.0
             vid.add(img)
         if (record_loss):
-            total_texture_loss_avg /= float(args.video_length * 40)
+            total_appearance_loss_avg /= float(args.video_length * 40)
             total_video_motion_loss_avg /= float(args.video_length * 40)
             with open(f'{output_dir}/final_loss_test.txt', 'w') as f:
-                f.write(f'{total_texture_loss_avg, total_video_motion_loss_avg}')
+                f.write(f'{total_appearance_loss_avg, total_video_motion_loss_avg}')
 
 
 nca_model.eval()

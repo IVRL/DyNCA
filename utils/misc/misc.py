@@ -31,14 +31,14 @@ def get_start_frame_idx(video_length, image_list_length):
 
 def save_summary(summary, save_func, output_dir, i = 0):
     if(summary is not None):
-        generated_flow_vis = summary['motion_texture-generated_video_flow'] / 255.0
+        generated_flow_vis = summary['video_motion-generated_video_flow'] / 255.0
         save_func(generated_flow_vis, f"{output_dir}/flow_gen{i}.jpg")
 
-        target_flow_vis = summary['motion_texture-target_video_flow'] / 255.0
+        target_flow_vis = summary['video_motion-target_video_flow'] / 255.0
         save_func(target_flow_vis, f"{output_dir}/flow_target{i}.jpg")
 
-        generated_vec_vis = summary['motion_texture-generated_video_vec']
+        generated_vec_vis = summary['video_motion-generated_video_vec']
         save_func(generated_vec_vis, f"{output_dir}/vec_gen{i}.png")
 
-        target_vec_vis = summary['motion_texture-target_video_vec']
+        target_vec_vis = summary['video_motion-target_video_vec']
         save_func(target_vec_vis, f"{output_dir}/vec_target{i}.png")

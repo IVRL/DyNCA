@@ -39,7 +39,7 @@ def choose_and_visualize():
             loss_img_file = open(os.path.join(last_path, filename), 'rb')
             loss_img = Image.open(loss_img_file)
             st.image(loss_img, caption=caption)
-    display_img('select_frame.png', 'Frame For Texture Fitting')
+    display_img('select_frame.png', 'Target Appearance')
     display_img('losses.jpg', 'Loss values during optimization')
     display_img('losses_video_motion.jpg', 'Motion Loss')
     display_img('losses_motion.jpg', 'Motion Loss')
