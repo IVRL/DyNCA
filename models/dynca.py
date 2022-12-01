@@ -39,7 +39,7 @@ class DyNCA(torch.nn.Module):
         self.perception_scales = perception_scales
         self.fc_dim = fc_dim
         self.padding_mode = nca_pad_mode
-        assert seed_mode in DeepNCA.SEED_MODES
+        assert seed_mode in DyNCA.SEED_MODES
         self.seed_mode = seed_mode
         self.random_seed = 42
         self.pos_emb = pos_emb
