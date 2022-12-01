@@ -87,10 +87,13 @@ parser.add_argument("--motion_strength_weight", type=float, help="Coefficient of
 parser.add_argument("--motion_direction_weight", type=float, help="Coefficient of direction indicating loss",
                     default=10.0,
                     dest='motion_direction_weight')
-
 parser.add_argument("--motion_vector_field_name", type=str,
                     help="Name of the motion vector field to be used", default=None,
                     dest='motion_vector_field_name')
+parser.add_argument("--motion_model_name", type=str, default='two_stream_dynamic',
+                    help="Optic Flow computing model. Default is two_stream_dynamic. ",
+                    dest='motion_model_name')
+
 parser.add_argument("--nca_base_num_steps", type=float,
                     help="Number of NCA steps to normalize the magnitude of the optic flow. This refers to the parameter T in the paper",
                     default=24.0,
@@ -118,7 +121,7 @@ DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 DynamicTextureLoss = Loss(args)
 
 style_img = Image.open(args.target_appearance_path)
-input_img_style, style_img_tensor = preprocess_style_image(style_img, model_type='vgg',
+input_img_style = preprocess_style_image(style_img, model_type='vgg',
                                                            img_size=args.img_size,
                                                            batch_size=args.batch_size)  # 0-1
 input_img_style = input_img_style.to(DEVICE)
@@ -132,7 +135,7 @@ assert nca_perception_scales[0] == 0
 img_name = args.target_appearance_path.split('/')[-1].split('.')[0]
 print(f"Target Appearance: {img_name}")
 
-output_dir = f'{args.output_dir}/{img_name}/{args.motion_field_name}/'
+output_dir = f'{args.output_dir}/{img_name}/{args.motion_vector_field_name}/'
 
 if not args.video_only:
     try:

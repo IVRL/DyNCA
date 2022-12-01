@@ -20,7 +20,6 @@ class VectorFieldMotionLoss(torch.nn.Module):
 
         self.motion_strength_weight = args.motion_strength_weight
         self.motion_direction_weight = args.motion_direction_weight
-        self.motion_mse_loss_weight = args.motion_mse_loss_weight
 
         self.nca_base_num_steps = args.nca_base_num_steps
 

@@ -55,10 +55,10 @@ parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default
 
 parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA filters", default='random',
                     choices=DyNCA.SEED_MODES, dest='nca_seed_mode')
-
-parser.add_argument("--nca_pad_mode", type=str, default='replicate',
-                    help="Padding used for NCA",
-                    dest='nca_pad_mode')
+parser.add_argument("--nca_padding_mode", type=str, default='replicate',
+                    help="Padding mode when NCA cells are perceiving",
+                    choices=['constant', 'reflect', 'replicate', 'circular'],
+                    dest='nca_padding_mode')
 parser.add_argument("--nca_pos_emb", type=str, default='CPE', choices=['None', 'CPE'],
                     help="The positional embedding mode to use. CPE (Cartesian), or None",
                     dest='nca_pos_emb')
@@ -154,7 +154,7 @@ motion_img_name = args.style_path.split('/')[-1].split('.')[0]
 texture_img_name = args.static_style_path.split('/')[-1].split('.')[0]
 print(f"Motion From {motion_img_name}, Texture From {texture_img_name}")
 
-output_dir = f'{args.output_dir}/{texture_img_name}/{motion_img_name}/{nca_min_steps}-{nca_max_steps}-{args.motion_nca_interval}-{args.img_size[0]}-{args.motion_img_size[0]}-{args.nca_c_in}-{args.nca_fc_dim}-{args.nca_pos_emb}-{args.nca_pad_mode[:3]}-{f"{nca_perception_scales_str}"}/'
+output_dir = f'{args.output_dir}/{texture_img_name}/{motion_img_name}/{nca_min_steps}-{nca_max_steps}-{args.motion_nca_interval}-{args.img_size[0]}-{args.motion_img_size[0]}-{args.nca_c_in}-{args.nca_fc_dim}-{args.nca_pos_emb}-{args.nca_padding_mode[:3]}-{f"{nca_perception_scales_str}"}/'
 if (not args.video_only):
     os_output_dir = "\ ".join(output_dir.split(" "))
     os.system(f"mkdir -p {os_output_dir}")
@@ -168,7 +168,7 @@ nca_model_list = []
 
 nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
-                  pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
+                  pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
                   perception_scales=nca_perception_scales,
                   device=DEVICE)
 
@@ -282,7 +282,7 @@ for i in pbar:
 
         nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                           seed_mode=args.nca_seed_mode,
-                          pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
+                          pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
                           perception_scales=nca_perception_scales,
                           device=DEVICE)
 

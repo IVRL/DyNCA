@@ -28,7 +28,7 @@ class DyNCA(torch.nn.Module):
     """
 
     def __init__(self, c_in, c_out, fc_dim=96,
-                 nca_pad_mode='replicate',
+                 nca_padding_mode='replicate',
                  seed_mode='zeros', pos_emb='CPE',
                  perception_scales=[0],
                  device=torch.device("cuda:0")):
@@ -38,7 +38,7 @@ class DyNCA(torch.nn.Module):
         self.c_out = c_out
         self.perception_scales = perception_scales
         self.fc_dim = fc_dim
-        self.padding_mode = nca_pad_mode
+        self.padding_mode = nca_padding_mode
         assert seed_mode in DyNCA.SEED_MODES
         self.seed_mode = seed_mode
         self.random_seed = 42

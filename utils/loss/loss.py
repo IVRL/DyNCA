@@ -35,11 +35,11 @@ class Loss(torch.nn.Module):
             self.loss_mapper["overflow"] = self.get_overflow_loss
             self.loss_weights["overflow"] = self.overflow_loss_weight
 
-        if self.motion_loss_weight != 0:
+        if self.vector_field_motion_loss_weight != 0:
             self.loss_mapper["vector_field_motion"] = VectorFieldMotionLoss(self.args)
-            self.loss_weights["vector_field_motion"] = self.motion_loss_weight
+            self.loss_weights["vector_field_motion"] = self.vector_field_motion_loss_weight
 
-        if self.texture_loss_weight != 0:
+        if self.appearance_loss_weight != 0:
             self.loss_mapper["appearance"] = AppearanceLoss(self.args)
             self.loss_weights["appearance"] = self.appearance_loss_weight
 
