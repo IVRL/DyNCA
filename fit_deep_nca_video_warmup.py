@@ -1,27 +1,18 @@
 import os
-import sys
 
 import warnings
 
 import json
-from datetime import datetime
 import torch
-import torchvision.models as torch_models
 from tqdm import tqdm
 import numpy as np
-from PIL import Image
 import copy
-import torchvision.transforms.functional as TF
-import torchvision.transforms as transforms
-from collections import defaultdict
-import random
 
-import models
+from collections import defaultdict
 from models.dynca import DyNCA
 from utils.misc.misc import get_start_frame_idx, save_summary
 from utils.misc.display_utils import plot_train_log, save_train_image
-from utils.misc.preprocess_texture import preprocess_style_image, preprocess_video, select_frame, get_train_image_seq
-import matplotlib.pyplot as plt
+from utils.misc.preprocess_texture import preprocess_video, get_train_image_seq
 
 from utils.loss.loss import Loss
 
@@ -31,8 +22,7 @@ torch.backends.cudnn.deterministic = True
 from utils.misc.video_utils import VideoWriter
 import argparse
 
-parser = argparse.ArgumentParser(
-    description='DyNCA on DyTS or dynamic style transfer')
+parser = argparse.ArgumentParser(description='DyNCA - Dynamic Texture Synthesis from Dynamic Texture Videos')
 
 # Add the arguments
 parser.add_argument("--img_size", nargs=2, type=int, help="Image size (width height) | default = (256, 256)",
@@ -69,15 +59,16 @@ parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA
 parser.add_argument("--nca_pad_mode", type=str, default='replicate',
                     help="Padding used for NCA",
                     dest='nca_pad_mode')
-parser.add_argument("--nca_pos_emb", type=str, default='CPE',
-                    help="Positional encoding type of NCA",
+parser.add_argument("--nca_pos_emb", type=str, default='CPE', choices=['None', 'CPE'],
+                    help="The positional embedding mode to use. CPE (Cartesian), or None",
                     dest='nca_pos_emb')
 parser.add_argument("--nca_perception_scales", nargs='+', action='append', type=int,
                     help="Specify the scales at which the NCA perception will be performed.",
                     default=[], dest='nca_perception_scales')
 
-# Loss Function
-# Texture 
+# Loss Functions
+
+# Appearance
 parser.add_argument("--texture_loss_weight", type=float,
                     help="Coefficient of Loss used for Texture or Activation Maximization", default=1.0,
                     dest='texture_loss_weight')
@@ -89,8 +80,8 @@ parser.add_argument("--texture_loss_type", type=str,
 parser.add_argument("--texture_model", type=str,
                     help="The model to compute style loss. vgg", default="vgg",
                     dest='texture_model')
-# Motion-Texture (Temporal Texture)
-parser.add_argument("--video_motion_loss_weight", type=float,
+# Video Motion
+parser.add_argument("--motion_loss_weight", type=float,
                     help="Coefficient of Motion Texture Loss for temporal texture synthesis", default=3.0,
                     dest='video_motion_loss_weight')
 parser.add_argument("--video_motion_loss_type", type=str,
@@ -396,7 +387,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
                         target_motion_image_list.append(train_image_seq[j + 1:j + 2])
                         input_dict['target_motion_image_list'] = target_motion_image_list
                         video_motion_loss, _, _ = loss_class.loss_mapper['video_motion'](input_dict,
-                                                                                             return_summary=False)
+                                                                                         return_summary=False)
                         cur_video_motion_loss_avg += video_motion_loss.item()
                     cur_video_motion_loss_avg /= (motion_video_length - 1)
 

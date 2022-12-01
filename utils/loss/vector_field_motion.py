@@ -12,14 +12,14 @@ class VectorFieldMotionLoss(torch.nn.Module):
 
         self.args = args
         print('Manually set motion vector field')
-        assert args.motion_field_name is not None
-        target_motion_vec = get_motion_vector_field(args.motion_field_name, img_size=args.motion_img_size)
+        assert args.motion_vector_field_name is not None
+        target_motion_vec = get_motion_vector_field_name(args.motion_vector_field_name, img_size=args.motion_img_size)
         target_motion_vec = target_motion_vec.to(args.DEVICE)
 
         args.target_motion_vec = target_motion_vec
 
         self.motion_strength_weight = args.motion_strength_weight
-        self.direction_weight = args.direction_weight
+        self.motion_direction_weight = args.motion_direction_weight
         self.motion_mse_loss_weight = args.motion_mse_loss_weight
 
         self.nca_base_num_steps = args.nca_base_num_steps
@@ -44,9 +44,9 @@ class VectorFieldMotionLoss(torch.nn.Module):
             self.loss_mapper['strength_diff'] = self.get_motion_strength_loss
             self.loss_weights['strength_diff'] = self.motion_strength_weight
 
-        if self.direction_weight > 0:
+        if self.motion_direction_weight > 0:
             self.loss_mapper['direction_loss'] = self.get_cosine_dist
-            self.loss_weights['direction_loss'] = self.direction_weight
+            self.loss_weights['direction_loss'] = self.motion_direction_weight
 
     def get_motion_strength_loss(self, optic_flow, nca_num_steps=1):
         motion_strength = torch.norm(optic_flow, dim=1) * self.nca_base_num_steps / nca_num_steps
@@ -133,14 +133,14 @@ class VectorFieldMotionLoss(torch.nn.Module):
             return loss, loss_log_dict, None
 
 
-def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
+def get_motion_vector_field_name(motion_vector_field_name, img_size=[128, 128]):
     try:
-        motion_direction = int(motion_field_name)
+        motion_direction = int(motion_vector_field_name)
         simple_direction = True
     except:
         simple_direction = False
     if simple_direction:
-        motion_direction = int(motion_field_name)
+        motion_direction = int(motion_vector_field_name)
         torch_pi = torch.FloatTensor([3.1416])
         motion_rad = motion_direction / 180.0 * torch_pi
         target_motion_vec = torch.zeros((1, 2, img_size[0], img_size[1]))
@@ -150,20 +150,13 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
         return target_motion_vec
 
     target_motion_vec = torch.zeros((1, 2, img_size[0], img_size[1]))
-    if 'gaussian_field' in motion_field_name:
-        if img_size[0] == 128:
-            motion_field = np.load(f"image/flows/128/{motion_field_name}.npy")
-            motion_field = motion_field.astype(np.float32)[None, [1, 0]]
-            target_motion_vec = torch.from_numpy(motion_field)
-            avg_motion_strength = torch.norm(target_motion_vec, dim=1).mean()
-            target_motion_vec = target_motion_vec / avg_motion_strength
 
-    elif 'grad' in motion_field_name:
+    if 'grad' in motion_vector_field_name:
         # For example grad_0_180
         # The first degree determines the direction of the motion
         # The second one determines the direction of motion magnitude gradient
-        theta = int(motion_field_name.split("_")[1])
-        phi = int(motion_field_name.split("_")[2])
+        theta = int(motion_vector_field_name.split("_")[1])
+        phi = int(motion_vector_field_name.split("_")[2])
         torch_pi = torch.FloatTensor([3.1416])
 
         theta = theta / 180.0 * torch_pi
@@ -187,7 +180,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
         target_motion_vec = target_motion_vec / avg_motion_strength
 
 
-    elif motion_field_name == 'hyperbolic':
+    elif motion_vector_field_name == 'hyperbolic':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         max_radius = (center_x ** 2 + center_y ** 2) ** 0.5
@@ -204,7 +197,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
         avg_motion_strength = torch.norm(target_motion_vec, dim=1).mean()
         target_motion_vec = target_motion_vec / avg_motion_strength
 
-    elif motion_field_name == 'circular':
+    elif motion_vector_field_name == 'circular':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         max_radius = (center_x ** 2 + center_y ** 2) ** 0.5
@@ -220,7 +213,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
 
         avg_motion_strength = torch.norm(target_motion_vec, dim=1).mean()
         target_motion_vec = target_motion_vec / avg_motion_strength
-    elif motion_field_name == 'circle':
+    elif motion_vector_field_name == 'circle':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         for i in range(-center_x, center_x):
@@ -232,7 +225,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 sine = j / radius
                 target_motion_vec[0, 0, center_x + i, center_y + j] = cosine  # sine + pi/2
                 target_motion_vec[0, 1, center_x + i, center_y + j] = -sine  # cosine + pi/2
-    elif motion_field_name == 'converge':
+    elif motion_vector_field_name == 'converge':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         for i in range(-center_x, center_x):
@@ -244,7 +237,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 sine = j / radius
                 target_motion_vec[0, 0, center_x + i, center_y + j] = -sine  #
                 target_motion_vec[0, 1, center_x + i, center_y + j] = -cosine  #
-    elif motion_field_name == 'diverge':
+    elif motion_vector_field_name == 'diverge':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         for i in range(-center_x, center_x):
@@ -256,7 +249,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 sine = j / radius
                 target_motion_vec[0, 0, center_x + i, center_y + j] = sine  #
                 target_motion_vec[0, 1, center_x + i, center_y + j] = cosine  #
-    elif motion_field_name == '2block_x':
+    elif motion_vector_field_name == '2block_x':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         torch_pi = torch.FloatTensor([3.1416])
@@ -275,7 +268,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 target_motion_vec[0, 0, center_x + i, center_y + j] = torch.cos(motion_rad)
                 target_motion_vec[0, 1, center_x + i, center_y + j] = torch.sin(motion_rad)
 
-    elif motion_field_name == '2block_y':
+    elif motion_vector_field_name == '2block_y':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         torch_pi = torch.FloatTensor([3.1416])
@@ -293,7 +286,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 motion_rad = rad / 180.0 * torch_pi
                 target_motion_vec[0, 0, center_x + i, center_y + j] = torch.cos(motion_rad)
                 target_motion_vec[0, 1, center_x + i, center_y + j] = torch.sin(motion_rad)
-    elif motion_field_name == '3block':
+    elif motion_vector_field_name == '3block':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         torch_pi = torch.FloatTensor([3.1416])
@@ -311,7 +304,7 @@ def get_motion_vector_field(motion_field_name, img_size=[128, 128]):
                 motion_rad = rad / 180.0 * torch_pi
                 target_motion_vec[0, 0, center_x + i, center_y + j] = torch.cos(motion_rad)
                 target_motion_vec[0, 1, center_x + i, center_y + j] = torch.sin(motion_rad)
-    elif motion_field_name == '4block':
+    elif motion_vector_field_name == '4block':
         center_x = img_size[0] // 2
         center_y = img_size[1] // 2
         torch_pi = torch.FloatTensor([3.1416])

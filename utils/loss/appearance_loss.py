@@ -6,25 +6,24 @@ import torchvision.models as torch_models
 import numpy as np
 
 
-class TextureLoss(torch.nn.Module):
+class AppearanceLoss(torch.nn.Module):
     def __init__(self, args):
-        super(TextureLoss, self).__init__()
+        super(AppearanceLoss, self).__init__()
         self.args = args
 
         args.texture_slw_weight = 0.0
         args.texture_ot_weight = 0.0
         args.texture_gram_weight = 0.0
-        if(args.texture_loss_type == 'OT'):
+        if args.appearance_loss_type == 'OT':
             args.texture_ot_weight = 1.0
-        elif(args.texture_loss_type == 'SlW'):
+        elif args.appearance_loss_type == 'SlW':
             args.texture_slw_weight = 1.0
-        elif(args.texture_loss_type == 'Gram'):
+        elif args.appearance_loss_type == 'Gram':
             args.texture_gram_weight = 1.0
 
         self.slw_weight = args.texture_slw_weight
         self.ot_weight = args.texture_ot_weight
         self.gram_weight = args.texture_gram_weight
-        self.texture_model = args.texture_model
 
         self._create_losses()
 
@@ -51,13 +50,15 @@ class TextureLoss(torch.nn.Module):
         target_image_list = input_dict['target_image_list']
         generated_image_list = input_dict['generated_image_list']
         for target_images, generated_images in zip(target_image_list, generated_image_list):
-            b,c,h,w = generated_images.shape
-            _,_,ht,wt = target_images.shape
-            if(self.texture_model == 'vgg'):
-                generated_images = (generated_images + 1.0) / 2.0
-                target_images = (target_images + 1.0) / 2.0
-            if(h!=ht or w!=wt):
-                target_images = TF.resize(target_images, size=(h,w))
+            b, c, h, w = generated_images.shape
+            _, _, ht, wt = target_images.shape
+
+            # Scale the images before feeding to VGG
+            generated_images = (generated_images + 1.0) / 2.0
+            target_images = (target_images + 1.0) / 2.0
+
+            if h != ht or w != wt:
+                target_images = TF.resize(target_images, size=(h, w))
             for loss_name in self.loss_mapper:
                 loss_weight = self.loss_weights[loss_name]
                 loss_func = self.loss_mapper[loss_name]
@@ -115,8 +116,10 @@ class SlicedWassersteinLoss(torch.nn.Module):
 
     def forward(self, target_images, generated_images):
         with torch.no_grad():
-            target_features = get_middle_feature_vgg(self.args, target_images, self.vgg16, flatten = True, include_image_as_feat = True)
-        generated_features = get_middle_feature_vgg(self.args, generated_images, self.vgg16, flatten = True, include_image_as_feat = True)
+            target_features = get_middle_feature_vgg(self.args, target_images, self.vgg16, flatten=True,
+                                                     include_image_as_feat=True)
+        generated_features = get_middle_feature_vgg(self.args, generated_images, self.vgg16, flatten=True,
+                                                    include_image_as_feat=True)
 
         return sum(self.sliced_ot_loss(x, y) for x, y in zip(generated_features, target_features))
 
@@ -205,7 +208,7 @@ class OptimalTransportLoss(torch.nn.Module):
         return loss / batch_size
 
 
-def get_middle_feature_vgg(args, imgs, vgg_model, flatten=False, include_image_as_feat = False):
+def get_middle_feature_vgg(args, imgs, vgg_model, flatten=False, include_image_as_feat=False):
     size = args.img_size
     DEVICE = args.DEVICE
     img_shape = imgs.shape[2]
@@ -218,8 +221,8 @@ def get_middle_feature_vgg(args, imgs, vgg_model, flatten=False, include_image_a
     std = torch.tensor([0.229, 0.224, 0.225])[:, None, None].to(DEVICE)
     x = (imgs - mean) / std
     b, c, h, w = x.shape
-    if(include_image_as_feat):
-        features = [x.reshape(b, c, h*w)]
+    if (include_image_as_feat):
+        features = [x.reshape(b, c, h * w)]
     else:
         features = []
     for i, layer in enumerate(vgg_model[:max(style_layers) + 1]):

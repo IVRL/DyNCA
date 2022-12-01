@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from utils.loss.vector_field_motion import VectorFieldMotionLoss
-from utils.loss.texture_loss import TextureLoss
+from utils.loss.appearance_loss import AppearanceLoss
 from utils.loss.video_motion_loss import VideoMotionLoss
 
 
@@ -11,7 +11,7 @@ class Loss(torch.nn.Module):
         super(Loss, self).__init__()
         self.args = args
 
-        self.texture_loss_weight = getattr(args, "texture_loss_weight", 0.0)
+        self.appearance_loss_weight = getattr(args, "appearance_loss_weight", 0.0)
 
         self.vector_field_motion_loss_weight = getattr(args, "vector_field_motion_loss_weight", 0.0)
         self.video_motion_loss_weight = getattr(args, "video_motion_loss_weight", 0.0)
@@ -40,14 +40,14 @@ class Loss(torch.nn.Module):
             self.loss_weights["vector_field_motion"] = self.motion_loss_weight
 
         if self.texture_loss_weight != 0:
-            self.loss_mapper["texture"] = TextureLoss(self.args)
-            self.loss_weights["texture"] = self.texture_loss_weight
+            self.loss_mapper["appearance"] = AppearanceLoss(self.args)
+            self.loss_weights["appearance"] = self.appearance_loss_weight
 
         if self.video_motion_loss_weight != 0:
             self.loss_mapper["video_motion"] = VideoMotionLoss(self.args)
             self.loss_weights["video_motion"] = self.video_motion_loss_weight
 
-    def set_loss_weight(self, texture_loss_log=None, loss_name='video_motion', loss_num=10.0, medium_mt=None):
+    def set_loss_weight(self, appearance_loss_log=None, loss_name='video_motion', loss_num=10.0, medium_mt=None):
         if loss_name == 'video_motion':
             img_size = self.args.img_size[0]
             img_name = self.args.style_path.split('/')[-1].split('.')[0]
@@ -66,7 +66,7 @@ class Loss(torch.nn.Module):
             self.loss_weights["video_motion"] = motion_loss_weight_reset
 
         if loss_name == 'vector_field_motion':
-            self.loss_weights["vector_field_motion"] = np.median(texture_loss_log) / 50.0
+            self.loss_weights["vector_field_motion"] = np.median(appearance_loss_log) / 50.0
 
     def forward(self, input_dict, return_log=True, return_summary=True):
         loss = 0
