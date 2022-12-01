@@ -80,15 +80,19 @@ parser.add_argument("--appearance_loss_type", type=str,
                     dest='appearance_loss_type')
 
 # Vector Field Motion
-parser.add_argument("--motion_loss_weight", type=float, help="Coefficient of Motion Loss", default=1.0,
+parser.add_argument("--motion_loss_weight", type=float, help="Coefficient of Motion Loss", default=4.0,
                     dest='vector_field_motion_loss_weight')
-parser.add_argument("--motion_strength_weight", type=float, help="Coefficient of Motion enhancing loss", default=1.0,
+parser.add_argument("--motion_strength_weight", type=float, help="Coefficient of Motion enhancing loss", default=15.0,
                     dest='motion_strength_weight')
 parser.add_argument("--motion_direction_weight", type=float, help="Coefficient of direction indicating loss",
                     default=10.0,
                     dest='motion_direction_weight')
+parser.add_argument("--motion_weight_change_interval", type=int,
+                    help="Interval of iterations for changing the motion loss weight. ",
+                    default=500,
+                    dest='motion_weight_change_interval')
 parser.add_argument("--motion_vector_field_name", type=str,
-                    help="Name of the motion vector field to be used", default=None,
+                    help="Name of the motion vector field to be used", default="circular",
                     dest='motion_vector_field_name')
 parser.add_argument("--motion_model_name", type=str, default='two_stream_dynamic',
                     help="Optic Flow computing model. Default is two_stream_dynamic. ",
@@ -100,14 +104,14 @@ parser.add_argument("--nca_base_num_steps", type=float,
                     dest='nca_base_num_steps')
 
 # Overflow
-parser.add_argument("--overflow_loss_weight", type=float, help="Coefficient of Overflow Loss", default=1.0,
+parser.add_argument("--overflow_loss_weight", type=float, help="Coefficient of Overflow Loss", default=100.0,
                     dest='overflow_loss_weight')
 
 # Optimization
 parser.add_argument("--iterations", type=int, help="Number of iterations", default=2000, dest='max_iterations')
 parser.add_argument("--save_every", type=int, help="Save image iterations", default=64, dest='save_every')
 parser.add_argument("--batch_size", type=int, help="Batch size", default=4, dest='batch_size')
-parser.add_argument("--lr", type=float, help="Learning rate", default=5e-3, dest='lr')
+parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, dest='lr')
 parser.add_argument("--lr_decay_step", nargs='+', action='append', type=int,
                     help="Specify the number of iterations for lr decay",
                     default=[], dest='lr_decay_step')
@@ -121,14 +125,17 @@ DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 DynamicTextureLoss = Loss(args)
 
 style_img = Image.open(args.target_appearance_path)
-input_img_style = preprocess_style_image(style_img, model_type='vgg',
-                                                           img_size=args.img_size,
-                                                           batch_size=args.batch_size)  # 0-1
-input_img_style = input_img_style.to(DEVICE)
+target_appearance_img = preprocess_style_image(style_img, model_type='vgg',
+                                               img_size=args.img_size,
+                                               batch_size=args.batch_size)  # 0-1
+target_appearance_img = target_appearance_img.to(DEVICE)
 
 nca_size_x, nca_size_y = int(args.img_size[0]), int(args.img_size[1])
 
-nca_perception_scales = args.nca_perception_scales[0]
+try:
+    nca_perception_scales = args.nca_perception_scales[0]
+except:
+    nca_perception_scales = [0]
 assert nca_perception_scales[0] == 0
 
 '''Create the log folder'''
@@ -150,7 +157,7 @@ nca_min_steps, nca_max_steps = args.nca_step_range
 
 nca_model = DyNCA(c_in=args.nca_c_in, c_out=3, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
-                  pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
+                  pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
                   perception_scales=nca_perception_scales,
                   device=DEVICE)
 with torch.no_grad():
@@ -169,7 +176,7 @@ def save_video(video_name, video_length, size_factor=1.0, step_n=8):
         for k in tqdm(range(int(video_length * fps)), desc="Making the video..."):
             nca_state, nca_feature = nca_model.forward_nsteps(h, step_n)
 
-            z = nca_feature[-1]
+            z = nca_feature
             h = nca_state
 
             img = z.detach().cpu().numpy()[0]
@@ -193,12 +200,15 @@ if not args.video_only:
 else:
     pbar = tqdm(range(0))
 
+if len(args.lr_decay_step) == 0:
+    args.lr_decay_step = [[1000, 2000]]
+
 lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                     args.lr_decay_step[0],
                                                     0.5)
 
 input_dict = {}  # input dictionary for computing the loss functions
-input_dict['target_style_images'] = input_img_style  # 0,1
+input_dict['target_image_list'] = [target_appearance_img]  # 0,1
 
 interval = args.motion_weight_change_interval
 
@@ -218,17 +228,16 @@ for i in pbar:
             input_states[:1] = seed_inject[:1]
 
         '''Get the image before NCA iteration for computing optic flow'''
-        input_states_before = input_states
 
-        nca_states_before, nca_features_before = nca_model.forward_nsteps(input_states_before, step_n=1)
-        z_before_nca = nca_features_before[-1]
+        nca_states_before, nca_features_before = nca_model.forward_nsteps(input_states, step_n=1)
+        z_before_nca = nca_features_before
         image_before_nca = z_before_nca
 
     step_n = np.random.randint(nca_min_steps, nca_max_steps)
     input_dict['step_n'] = step_n
     nca_states_after, nca_features_after = nca_model.forward_nsteps(input_states, step_n)
 
-    z = nca_features_after[-1]
+    z = nca_features_after
     generated_image = z
     with torch.no_grad():
         generated_image_vis = generated_image.clone()
@@ -237,17 +246,16 @@ for i in pbar:
     image_after_nca = generated_image.clone()
 
     '''Construct input dictionary for loss computation'''
-    input_dict['generated_images'] = generated_image
+    input_dict['generated_image_list'] = [generated_image]
     input_dict['generated_image_before_nca'] = image_before_nca
     input_dict['generated_image_after_nca'] = image_after_nca
 
     input_dict['nca_state'] = nca_states_after
 
-    DynamicTextureLoss.update_losses_to_apply(i)
     if (i + 1) % args.save_every == 0:
         batch_loss, batch_loss_log_dict, summary = DynamicTextureLoss(input_dict, return_summary=True)
     else:
-        batch_loss, batch_loss_log_dict = DynamicTextureLoss(input_dict, return_summary=False)
+        batch_loss, batch_loss_log_dict, _ = DynamicTextureLoss(input_dict, return_summary=False)
         summary = {}
 
     for loss_name in batch_loss_log_dict:
@@ -267,6 +275,7 @@ for i in pbar:
 
         for p_name, p in nca_model.named_parameters():
             p.grad /= (p.grad.norm() + 1e-8)  # normalize gradients
+            
         optimizer.step()
         optimizer.zero_grad()
         lr_scheduler.step()
@@ -283,7 +292,7 @@ for i in pbar:
 
             if 'motion-generated_flow_vector_field' in summary:
                 generated_flow_vector_field = summary['motion-generated_flow_vector_field']
-                generated_flow_vector_field.save(f"{output_dir}/vec_field_gen_{i}.png")
+                generated_flow_vector_field.save(f"{output_dir}/vec_field_gen{i}.png")
 
             if 'motion-target_flow_vector_field' in summary:
                 target_flow_vector_field = summary['motion-target_flow_vector_field']

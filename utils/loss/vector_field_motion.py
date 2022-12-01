@@ -39,8 +39,8 @@ class VectorFieldMotionLoss(torch.nn.Module):
         self.loss_weights = {}
 
         if self.motion_strength_weight > 0:
-            self.loss_mapper['strength_diff'] = self.get_motion_strength_loss
-            self.loss_weights['strength_diff'] = self.motion_strength_weight
+            self.loss_mapper['strength_loss'] = self.get_motion_strength_loss
+            self.loss_weights['strength_loss'] = self.motion_strength_weight
 
         if self.motion_direction_weight > 0:
             self.loss_mapper['direction_loss'] = self.get_cosine_dist
