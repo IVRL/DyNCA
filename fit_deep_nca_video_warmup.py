@@ -116,7 +116,7 @@ parser.add_argument("--overflow_loss_weight", type=float, help="Coefficient of O
                     dest='overflow_loss_weight')
 # Regularization 
 parser.add_argument("--regularization_loss_weight", type=float, help="Coefficient of Latent Code Regularization Loss",
-                    default=1e-2, dest='regularization_loss_weight')
+                    default=0.0, dest='regularization_loss_weight')
 
 # Optimization
 parser.add_argument("--iterations", type=int, help="Number of iterations", default=2000, dest='max_iterations')
