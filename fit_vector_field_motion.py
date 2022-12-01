@@ -42,9 +42,9 @@ parser.add_argument("--video_only", action='store_true', help="Only generate vid
                     dest='video_only')
 
 # Target
-parser.add_argument("--target_path", type=str, help="Path to the target appearance image",
+parser.add_argument("--target_appearance_path", type=str, help="Path to the target appearance image",
                     default='data/VectorFieldMotion/Appearance/bubbly_0101.jpg',
-                    dest='target_path')
+                    dest='target_appearance_path')
 
 # NCA
 parser.add_argument("--nca_pool_size", type=int, help="Number of elements in the NCA pool", default=256,
@@ -117,7 +117,7 @@ DEVICE = torch.device(args.DEVICE if torch.cuda.is_available() else "cpu")
 
 DynamicTextureLoss = Loss(args)
 
-style_img = Image.open(args.target_path)
+style_img = Image.open(args.target_appearance_path)
 input_img_style, style_img_tensor = preprocess_style_image(style_img, model_type='vgg',
                                                            img_size=args.img_size,
                                                            batch_size=args.batch_size)  # 0-1
@@ -129,7 +129,7 @@ nca_perception_scales = args.nca_perception_scales[0]
 assert nca_perception_scales[0] == 0
 
 '''Create the log folder'''
-img_name = args.target_path.split('/')[-1].split('.')[0]
+img_name = args.target_appearance_path.split('/')[-1].split('.')[0]
 print(f"Target Appearance: {img_name}")
 
 output_dir = f'{args.output_dir}/{img_name}/{args.motion_field_name}/'
