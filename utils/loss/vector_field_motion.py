@@ -11,8 +11,9 @@ class VectorFieldMotionLoss(torch.nn.Module):
         super(VectorFieldMotionLoss, self).__init__()
 
         self.args = args
-        print('Manually set motion vector field')
+        
         assert args.motion_vector_field_name is not None
+        print('Target Vector Field: ', args.motion_vector_field_name)
         target_motion_vec = get_motion_vector_field_name(args.motion_vector_field_name, img_size=args.motion_img_size)
         target_motion_vec = target_motion_vec.to(args.DEVICE)
 

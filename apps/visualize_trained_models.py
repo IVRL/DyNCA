@@ -59,7 +59,7 @@ def choose_and_visualize():
             st.video(video_bytes)
             
     display_video('video_last.mp4')
-    display_video('video_last_large.mp4')        
+    display_video('video_large_last.mp4')        
     
     display_video('video.mp4')
     display_video('video_large.mp4')
