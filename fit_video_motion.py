@@ -66,9 +66,9 @@ parser.add_argument("--nca_fc_dim", type=int, help="FC layer dimension", default
 parser.add_argument("--nca_seed_mode", type=str, help="Scaling factor of the NCA filters", default='zeros',
                     choices=DyNCA.SEED_MODES, dest='nca_seed_mode')
 
-parser.add_argument("--nca_pad_mode", type=str, default='replicate',
+parser.add_argument("--nca_padding_mode", type=str, default='replicate',
                     help="Padding used for NCA",
-                    dest='nca_pad_mode')
+                    dest='nca_padding_mode')
 parser.add_argument("--nca_pos_emb", type=str, default='CPE',
                     help="Positional encoding type of NCA",
                     dest='nca_pos_emb')
@@ -178,7 +178,7 @@ nca_model_list = []
 
 nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
-                  pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
+                  pos_emb=args.nca_pos_emb, padding_mode=args.nca_padding_mode,
                   perception_scales=nca_perception_scales,
                   device=DEVICE)
 
@@ -291,7 +291,7 @@ for i in pbar:
 
         nca_model = DyNCA(c_in=args.nca_c_in, c_out=c_out, fc_dim=args.nca_fc_dim,
                           seed_mode=args.nca_seed_mode,
-                          pos_emb=args.nca_pos_emb, nca_pad_mode=args.nca_pad_mode,
+                          pos_emb=args.nca_pos_emb, padding_mode=args.nca_padding_mode,
                           perception_scales=nca_perception_scales,
                           device=DEVICE)
 

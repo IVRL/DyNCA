@@ -127,7 +127,7 @@ DynamicTextureLoss = Loss(args)
 style_img = Image.open(args.target_appearance_path)
 target_appearance_img = preprocess_style_image(style_img, model_type='vgg',
                                                img_size=args.img_size,
-                                               batch_size=args.batch_size)  # 0-1
+                                               batch_size=args.batch_size) * 2.0 - 1.0  # [-1.0, 1.0]
 target_appearance_img = target_appearance_img.to(DEVICE)
 
 nca_size_x, nca_size_y = int(args.img_size[0]), int(args.img_size[1])
@@ -157,7 +157,7 @@ nca_min_steps, nca_max_steps = args.nca_step_range
 
 nca_model = DyNCA(c_in=args.nca_c_in, c_out=3, fc_dim=args.nca_fc_dim,
                   seed_mode=args.nca_seed_mode,
-                  pos_emb=args.nca_pos_emb, nca_padding_mode=args.nca_padding_mode,
+                  pos_emb=args.nca_pos_emb, padding_mode=args.nca_padding_mode,
                   perception_scales=nca_perception_scales,
                   device=DEVICE)
 with torch.no_grad():
