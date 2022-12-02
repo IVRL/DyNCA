@@ -109,7 +109,7 @@ parser.add_argument("--overflow_loss_weight", type=float, help="Coefficient of O
 
 # Optimization
 parser.add_argument("--iterations", type=int, help="Number of iterations", default=2000, dest='max_iterations')
-parser.add_argument("--save_every", type=int, help="Save image iterations", default=64, dest='save_every')
+parser.add_argument("--save_every", type=int, help="Save image iterations", default=200, dest='save_every')
 parser.add_argument("--batch_size", type=int, help="Batch size", default=4, dest='batch_size')
 parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, dest='lr')
 parser.add_argument("--lr_decay_step", nargs='+', action='append', type=int,

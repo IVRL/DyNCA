@@ -167,6 +167,7 @@ class MSOEmultiscale(torch.nn.Module):
 
         x = torch.nn.functional.relu(x)
         flow = self.decode_conv2(x)
+        flow[:, 1] *= -1
         
         if return_features:
             return flow, features

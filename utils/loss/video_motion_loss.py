@@ -77,7 +77,6 @@ class VideoMotionLoss(torch.nn.Module):
         x2 = TF.rgb_to_grayscale(x2)
         image_cat = torch.stack([x1, x2], dim=-1)
         flow, motion_feature = self.motion_model(image_cat, return_features=True)
-        flow[:, 1] *= -1
 
         return motion_feature, flow
 
