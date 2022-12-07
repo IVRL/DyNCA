@@ -235,22 +235,23 @@ for i in pbar:
     nca_video_feature_list = middle_feature_list[::args.motion_nca_interval]
     batch_minus = 0
     if (seed_injection == True):
-        batch_minus = 1
-        nca_video_feature_list = [x[1:] for x in nca_video_feature_list]
+        batch_minus = 0
+        nca_video_feature_list_trunc = [x for x in nca_video_feature_list]
     else:
-        pass
+        nca_video_feature_list_trunc = nca_video_feature_list
     generated_image_list = [z for z in nca_video_feature_list]
+    generated_image_list_trunc = [z for z in nca_video_feature_list_trunc]
     image_list_length = len(generated_image_list)
     input_dict['generated_image_list'] = generated_image_list
-    input_dict['generated_image_list_motion'] = generated_image_list
+    input_dict['generated_image_list_motion'] = generated_image_list_trunc
 
     '''Build target image sequence from train_image_seq_texture'''
 
     idx_vid = get_start_frame_idx(video_length, image_list_length)
     target_image_list = []
-    for j in range(image_list_length):
+    for j in range(image_list_length + batch_minus):
         target_image_list.append(
-            train_image_seq_texture[frame_idx_texture:frame_idx_texture + 1].repeat(args.batch_size - batch_minus, 1, 1,
+            train_image_seq_texture[frame_idx_texture:frame_idx_texture + 1].repeat(args.batch_size, 1, 1,
                                                                                     1))
 
     input_dict['target_image_list'] = target_image_list
