@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from utils.loss.vector_field_motion import VectorFieldMotionLoss
+from utils.loss.vector_field_loss import VectorFieldMotionLoss
 from utils.loss.appearance_loss import AppearanceLoss
 from utils.loss.video_motion_loss import VideoMotionLoss
 

@@ -14,7 +14,7 @@ class VectorFieldMotionLoss(torch.nn.Module):
         
         assert args.motion_vector_field_name is not None
         print('Target Vector Field: ', args.motion_vector_field_name)
-        target_motion_vec = get_motion_vector_field_name(args.motion_vector_field_name, img_size=args.motion_img_size)
+        target_motion_vec = get_motion_vector_field_by_name(args.motion_vector_field_name, img_size=args.motion_img_size)
         target_motion_vec = target_motion_vec.to(args.DEVICE)
 
         args.target_motion_vec = target_motion_vec
@@ -132,7 +132,7 @@ class VectorFieldMotionLoss(torch.nn.Module):
             return loss, loss_log_dict, None
 
 
-def get_motion_vector_field_name(motion_vector_field_name, img_size=[128, 128]):
+def get_motion_vector_field_by_name(motion_vector_field_name, img_size=[128, 128]):
     try:
         motion_direction = int(motion_vector_field_name)
         simple_direction = True

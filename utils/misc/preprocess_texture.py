@@ -53,11 +53,11 @@ def preprocess_video(video_path, img_size=[128, 128], normalRGB = False):
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
-                print(f'Total Training Frames: {index}')
+#                 print(f'Total Training Frames: {index}')
                 break
             index += 1
-            if(index == 50):
-                break
+#             if(index == 50):
+#                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # BGR->RGB
             frame = Image.fromarray(frame.astype(np.uint8)).convert('RGB')
 

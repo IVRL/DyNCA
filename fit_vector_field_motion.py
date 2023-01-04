@@ -286,16 +286,16 @@ for i in pbar:
             save_video("video_last", 3.0, size_factor=1.0, step_n=int(args.nca_base_num_steps))
             save_video("video_large_last", 3.0, size_factor=2.0, step_n=int(args.nca_base_num_steps))
 
-            if 'motion-generated_video_flow' in summary:
-                generated_flow_vis = summary['motion-generated_video_flow'] / 255.0
+            if 'vector_field_motion-generated_video_flow' in summary:
+                generated_flow_vis = summary['vector_field_motion-generated_video_flow'] / 255.0
                 save_train_image(generated_flow_vis[:4], f"{output_dir}/flow_gen{i}.jpg")
 
-            if 'motion-generated_flow_vector_field' in summary:
-                generated_flow_vector_field = summary['motion-generated_flow_vector_field']
+            if 'vector_field_motion-generated_flow_vector_field' in summary:
+                generated_flow_vector_field = summary['vector_field_motion-generated_flow_vector_field']
                 generated_flow_vector_field.save(f"{output_dir}/vec_field_gen{i}.png")
 
-            if 'motion-target_flow_vector_field' in summary:
-                target_flow_vector_field = summary['motion-target_flow_vector_field']
+            if 'vector_field_motion-target_flow_vector_field' in summary:
+                target_flow_vector_field = summary['vector_field_motion-target_flow_vector_field']
                 target_flow_vector_field.save(f"{output_dir}/vec_field_target.png")
 
             save_train_image(generated_image_vis.detach().cpu().numpy(), f"{output_dir}/step{i}.jpg")
