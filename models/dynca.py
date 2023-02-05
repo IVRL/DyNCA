@@ -118,9 +118,9 @@ class DyNCA(torch.nn.Module):
         y = self.w2(F.relu(self.w1(y_percept)))
         b, c, h, w = y.shape
 
-        udpate_mask = (torch.rand(b, 1, h, w) + update_rate).floor().to(self.device)
+        update_mask = (torch.rand(b, 1, h, w) + update_rate).floor().to(self.device)
 
-        x = x + y * udpate_mask
+        x = x + y * update_mask
 
         if return_perception:
             return x, self.to_rgb(x), y_percept
