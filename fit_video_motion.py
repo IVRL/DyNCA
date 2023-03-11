@@ -387,7 +387,7 @@ def synthesize_video(args, nca_model, video_length, output_dir, train_image_seq_
                         target_image_list = []
                         target_image_list.append(train_image_seq_texture[j:j + 1])
                         input_dict['target_image_list'] = target_image_list
-                        appearance_loss, _, _ = loss_class.loss_mapper['Appearance'](input_dict, return_summary=False)
+                        appearance_loss, _, _ = loss_class.loss_mapper['appearance'](input_dict, return_summary=False)
                         cur_appearance_loss_avg += appearance_loss.item()
                     cur_appearance_loss_avg /= texture_videl_length
 

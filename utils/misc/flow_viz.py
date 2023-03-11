@@ -55,6 +55,8 @@ def plot_vec_field(vector_field, name="target"):
     fig.savefig(buf)
     buf.seek(0)
     img = Image.open(buf)
+    plt.clf()
+    plt.close()
     
     return img
 

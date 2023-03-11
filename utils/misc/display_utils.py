@@ -25,6 +25,7 @@ def plot_train_log(log_dict, plt_number, save_path):
             plt.ylim(np.min(loss_log), max(loss_log))
         plt_idx += 1
     plt.savefig(save_path)
+    
 
 
 def np2pil(a):
@@ -64,8 +65,11 @@ def imshow(a, fmt='jpeg', _clear_output=False):
     display(Image(data=imencode(a, fmt)))
 
 
-def save_train_image(imgs, save_path):
+def save_train_image(imgs, save_path, return_img = False):
     imgs = imgs.transpose(0, 2, 3, 1)
     imgs = np.hstack(imgs)
     imgs = np2pil(imgs)
+    if(return_img):
+        return imgs
     imgs.save(save_path, quality = 100)
+    
