@@ -78,6 +78,9 @@ def plot_vec_field(vector_field, name="target", vmin=None, vmax=None):
     frame.set_aspect('equal', adjustable='box')
     buf = io.BytesIO()
     fig.savefig(buf)
+    plt.clf()
+    plt.close()
+    
     buf.seek(0)
     img = Image.open(buf)
     
