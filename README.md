@@ -13,10 +13,13 @@ model can learn to synthesize dynamic texture videos such that:
 
 ![](data/repo_images/teaser.png)
 
-Starting from a seed state, DyNCA iteratively updates it, generating an image sequence. We extract images from this
-sequence and compare them with an appearance target as well as a motion target to obtain the DyNCA training objectives.
-After training, DyNCA can adapt to seeds of different height and width, and synthesize videos with arbitrary length.
-Sequentially applying DyNCA updates on the seed synthesizes dynamic texture videos in real-time.
+[comment]: <> (Starting from a seed state, DyNCA iteratively updates it, generating an image sequence. We extract images from this)
+
+[comment]: <> (sequence and compare them with an appearance target as well as a motion target to obtain the DyNCA training objectives.)
+
+[comment]: <> (After training, DyNCA can adapt to seeds of different height and width, and synthesize videos with arbitrary length.)
+
+[comment]: <> (Sequentially applying DyNCA updates on the seed synthesizes dynamic texture videos in real-time.)
 
 ## Run in Google Colab
 
