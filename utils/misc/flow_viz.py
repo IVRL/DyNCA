@@ -17,10 +17,13 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+
 from PIL import Image
 import io
 
-def plot_vec_field(vector_field, name="target"):
+
+def plot_vec_field(vector_field, name="target", vmin=None, vmax=None):
     """
     Parameters
     ----------
@@ -30,7 +33,15 @@ def plot_vec_field(vector_field, name="target"):
 
     _, H, W = vector_field.shape
     norm = np.sqrt(vector_field[0, ::-1] ** 2 + vector_field[1, ::-1] ** 2)
-    fig = plt.figure()
+    
+    if vmin is None:
+        vmin = norm.min()
+    if vmax is None:
+        vmax = norm.max()
+    
+    normalize = matplotlib.colors.Normalize(vmin=vmin, vmax=vmax, clip=False)
+
+    fig = plt.figure(figsize=(5, 5))
     ax = fig.add_subplot(111, projection="rectilinear")
     title = f"{name} vector field."                    
     xs = np.linspace(-1.0, 1.0, W)
@@ -42,23 +53,36 @@ def plot_vec_field(vector_field, name="target"):
         vector_field[0, ::-1],
         -vector_field[1, ::-1],
         color=norm,
-        linewidth=norm / 2,
+        linewidth=(norm + 0.05) / 1.25,
+        norm=normalize,
+        density=0.75,
+#         broken_streamlines=False,
+#         minlength=0.3,
+        # vmin=2.0, vmax=2.0,
     )
-    # print(norm.min(), norm.max())
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_title(title)
+#     print(norm.min(), norm.max())
+#     ax.set_xlabel("X")
+#     ax.set_ylabel("Y")
+#     ax.set_title(title)
+    # ax.axis('equal', adjustable='box')
+    
+
     fig.colorbar(sp.lines)
     fig.canvas.draw()
-
+    
+    frame = plt.gca()
+    frame.axes.xaxis.set_ticklabels([])
+    frame.axes.yaxis.set_ticklabels([])
+    frame.axes.get_xaxis().set_ticks([])
+    frame.axes.get_yaxis().set_ticks([])
+    frame.set_aspect('equal', adjustable='box')
     buf = io.BytesIO()
     fig.savefig(buf)
     buf.seek(0)
     img = Image.open(buf)
-    plt.clf()
-    plt.close()
     
     return img
+
 
 def make_colorwheel():
     """
@@ -144,7 +168,7 @@ def flow_uv_to_colors(u, v, convert_to_bgr=False):
     return flow_image
 
 
-def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False):
+def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False, rad_max=None):
     """
     Expects a two dimensional flow image of shape.
     Args:
@@ -161,7 +185,8 @@ def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False):
     u = flow_uv[:, :, 0]
     v = flow_uv[:, :, 1]
     rad = np.sqrt(np.square(u) + np.square(v))
-    rad_max = np.max(rad)
+    if rad_max is None:
+        rad_max = np.max(rad)
     epsilon = 1e-5
     u = u / (rad_max + epsilon)
     v = v / (rad_max + epsilon)
