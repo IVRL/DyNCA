@@ -25,8 +25,8 @@ corresponding notebooks for different modes of training DyNCA.
 
 | **Target Motion** | **Colab Notebook** | **Jupyter Notebook** |
 |:-----------------:|:------------------:|:--------------------:|
-| **VectorField** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/IVRL/DyNCA/blob/main/notebooks/run_vector_field_motion_colab.ipynb) | [vector_field_motion.ipynb](notebooks/vector_field_motion.ipynb) |
-|  **Video** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/IVRL/DyNCA/blob/main/notebooks/run_video_motion_colab.ipynb)                   |           [video_motion.ipynb](notebooks/video_motion.ipynb)            |
+| **VectorField** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/IVRL/DyNCA/blob/main/notebooks/vector_field_motion_colab.ipynb) | [vector_field_motion.ipynb](notebooks/vector_field_motion.ipynb) |
+|  **Video** | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/IVRL/DyNCA/blob/main/notebooks/video_motion_colab.ipynb)                   |           [video_motion.ipynb](notebooks/video_motion.ipynb)            |
 
 
 ## Run Locally
