@@ -40,12 +40,12 @@ class VectorFieldMotionLoss(torch.nn.Module):
         self.loss_weights = {}
 
         if self.motion_strength_weight > 0:
-            self.loss_mapper['strength_loss'] = self.get_motion_strength_loss
-            self.loss_weights['strength_loss'] = self.motion_strength_weight
+            self.loss_mapper['strength'] = self.get_motion_strength_loss
+            self.loss_weights['strength'] = self.motion_strength_weight
 
         if self.motion_direction_weight > 0:
-            self.loss_mapper['direction_loss'] = self.get_cosine_dist
-            self.loss_weights['direction_loss'] = self.motion_direction_weight
+            self.loss_mapper['direction'] = self.get_cosine_dist
+            self.loss_weights['direction'] = self.motion_direction_weight
 
     def get_motion_strength_loss(self, optic_flow, nca_num_steps=1):
         motion_strength = torch.norm(optic_flow, dim=1) * self.nca_base_num_steps / nca_num_steps
