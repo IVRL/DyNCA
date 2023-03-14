@@ -315,9 +315,9 @@ for i in pbar:
                 plot_log_dict['Motion Loss'] = (
                     loss_log_dict['vector_field_motion'], False, False)
                 plot_log_dict['Motion Direction Loss'] = (
-                    loss_log_dict['vector_field_motion-direction_loss'], False, False)
+                    loss_log_dict['vector_field_motion-direction'], False, False)
                 plot_log_dict['Motion Strength Loss'] = (
-                    loss_log_dict['vector_field_motion-strength_diff'], False, False)
+                    loss_log_dict['vector_field_motion-strength'], False, False)
                 plot_train_log(plot_log_dict, 5, save_path=f"{output_dir}/losses_motion.jpg")
 
         if i % 5 == 0:
