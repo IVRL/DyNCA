@@ -39,7 +39,7 @@ If you would like to train DyNCA in a local environment, please follow the steps
 ### Installing Requirements
 
 1. System Requirements
-- Python 3.8.10
+- Python 3.8
 - CUDA 11
 - GPU with minimum 12 GB RAM
 2. Dependencies
