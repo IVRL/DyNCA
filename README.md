@@ -43,11 +43,11 @@ If you would like to train DyNCA in a local environment, please follow the steps
 - CUDA 11
 - GPU with minimum 12 GB RAM
 2. Dependencies
-1.  Install PyTorch using the command from official [tutorial](https://pytorch.org/get-started/previous-versions/#linux-and-windows-12). We have tested on PyTorch 1.10.0cu113.  
-2.  Install other dependencies by running the following command.
-```
-pip install -r requirements.txt
-```
+    1. Install PyTorch using the command from official [tutorial](https://pytorch.org/get-started/previous-versions/#linux-and-windows-12). We have tested on PyTorch 1.10.0cu113.  
+    2. Install other dependencies by running the following command.
+    ```
+    pip install -r requirements.txt
+    ```
 
 ### Running the training scripts
 1. Vector Field Motion.
