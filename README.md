@@ -60,7 +60,7 @@ See ```utils/loss/vector_field_loss.py``` for more names of vector fields.
 ```
 python fit_video_motion.py --target_dynamics_path /path/to/target-dynamic-video --target_appearance_path /path/to/appearance-image-or-video
 ```
-We provide some exemplar videos under ```data/VideoMotion/Motion```
+We provide some sample videos under ```data/VideoMotion/Motion```
 
 ### Visualizing with Streamlit
 After the training process is completed, the results can be visualized using the streamlit app, which is available in the result folder.
