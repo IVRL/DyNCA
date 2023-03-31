@@ -34,17 +34,40 @@ corresponding notebooks for different modes of training DyNCA.
 
 ## Run Locally
 
-TODO
+If you would like to train DyNCA in a local environment, please follow the steps outlined below.
 
 ### Installing Requirements
 
-TODO
+1. System Requirements
+- Python 3.8
+- CUDA 11
+- GPU with minimum 12 GB RAM
+2. Dependencies
+    1. Install PyTorch using the command from official [tutorial](https://pytorch.org/get-started/previous-versions/#linux-and-windows-12). We have tested on PyTorch 1.10.0cu113.  
+    2. Install other dependencies by running the following command.
+    ```
+    pip install -r requirements.txt
+    ```
 
 ### Running the training scripts
+1. Vector Field Motion.
+```
+python fit_vector_field_motion.py --target_appearance_path /path/to/appearance-image --motion_vector_foeld_name "circular"
+```
+See ```utils/loss/vector_field_loss.py``` for more names of vector fields. 
 
-TODO
+2. Video Motion.
+```
+python fit_video_motion.py --target_dynamics_path /path/to/target-dynamic-video --target_appearance_path /path/to/appearance-image-or-video
+```
+We provide some exemplar videos under ```data/VideoMotion/Motion```
 
 ### Visualizing with Streamlit
+After the training process is completed, the results can be visualized using the streamlit app, which is available in the result folder.
+```
+cd apps
+streamlit run visualize_trained_models.py
+```
 
 ## Citation
 
