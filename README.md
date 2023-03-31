@@ -63,7 +63,7 @@ python fit_video_motion.py --target_dynamics_path /path/to/target-dynamic-video 
 We provide some exemplar videos under ```data/VideoMotion/Motion```
 
 ### Visualizing with Streamlit
-Once the training has finished, you can visualize the results in the result folder using streamlit app.
+After the training process is completed, the results can be visualized using the streamlit app, which is available in the result folder.
 ```
 cd apps
 streamlit run visualize_trained_models.py
