@@ -54,7 +54,7 @@ If you would like to train DyNCA in a local environment, please follow the steps
 ```
 python fit_vector_field_motion.py --target_appearance_path /path/to/appearance-image --motion_vector_foeld_name "circular"
 ```
-See ```utils/loss/vector_field_loss.py``` for more names of vector fields. 
+See ```utils/loss/vector_field_loss.py``` and our [supplementary materials](https://dynca.github.io/supplementary/) for more names of vector fields. 
 
 2. Video Motion
 ```
