@@ -34,15 +34,17 @@ corresponding notebooks for different modes of training DyNCA.
 
 ## Run Locally
 
-TODO
+If you would like to train DyNCA in a local environment, please follow the steps outlined below.
 
 ### Installing Requirements
 
-TODO
+etc
 
 ### Running the training scripts
 
-TODO
+```
+python main.py
+```
 
 ### Visualizing with Streamlit
 
