@@ -49,14 +49,14 @@ If you would like to train DyNCA in a local environment, please follow the steps
     pip install -r requirements.txt
     ```
 
-### Running the training scripts
-1. Vector Field Motion.
+### Run the training scripts
+1. Vector Field Motion
 ```
 python fit_vector_field_motion.py --target_appearance_path /path/to/appearance-image --motion_vector_foeld_name "circular"
 ```
 See ```utils/loss/vector_field_loss.py``` for more names of vector fields. 
 
-2. Video Motion.
+2. Video Motion
 ```
 python fit_video_motion.py --target_dynamics_path /path/to/target-dynamic-video --target_appearance_path /path/to/appearance-image-or-video
 ```
