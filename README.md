@@ -80,4 +80,7 @@ If you make use of our work, please cite our paper:
   booktitle = {Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
   year      = {2023},
 }
+
+To cite the code: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11067861.svg)](https://doi.org/10.5281/zenodo.11067861)
+
 ```
